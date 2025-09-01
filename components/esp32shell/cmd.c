@@ -29,7 +29,6 @@ void cmd_init(void) {
     
     // 注册系统命令
     cmd_register_task("status", task_status, "显示系统状态");
-    cmd_register_task("led", task_led, "控制LED (on/off)");
     cmd_register_task("tasks", task_tasks, "显示所有任务信息");
     cmd_register_task("heap", task_heap, "显示内存使用情况");
     cmd_register_task("uptime", task_uptime, "显示系统运行时间");

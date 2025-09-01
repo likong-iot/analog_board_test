@@ -52,9 +52,12 @@ static const cmd_help_info_t cmd_help_table[] = {
     // 系统命令
     {"status", "status [参数]", "显示系统状态信息", "status"},
     
-    {"led", "led <on|off>", "控制LED开关",
-     "led on\r\n"
-     "led off"},
+    {"led", "led <1-4|all> <on|off|toggle|blink>", "控制LED开关、切换或闪烁",
+     "led 1 on\r\n"
+     "led all off\r\n"
+     "led 2 toggle\r\n"
+     "led 3 blink 5 200\r\n"
+     "led status"},
     
     {"tasks", "tasks", "显示所有FreeRTOS任务信息", "tasks"},
     

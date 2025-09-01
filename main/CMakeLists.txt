@@ -4,6 +4,8 @@ idf_component_register(
         "uart_driver.c"
         "sd.c"
         "i2c_config.c"
+        "led.c"
+        "led_commands.c"
     INCLUDE_DIRS 
         "."
     REQUIRES 
