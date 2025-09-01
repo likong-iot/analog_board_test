@@ -6,44 +6,295 @@
 #include "freertos/task.h"
 #include "string.h"
 
+// 命令帮助信息结构
+typedef struct {
+    const char *name;
+    const char *usage;
+    const char *description;
+    const char *examples;
+} cmd_help_info_t;
+
+// 命令帮助信息数组
+static const cmd_help_info_t cmd_help_table[] = {
+    // 基础命令
+    {"help", "help [命令名]", "显示帮助信息。不带参数显示所有命令列表，带参数显示指定命令的详细帮助", 
+     "help\r\n"
+     "help ls\r\n"
+     "help mkdir"},
+    
+    {"echo", "echo <文本>", "回显输入的文本", 
+     "echo Hello World\r\n"
+     "echo 测试中文"},
+    
+    {"version", "version", "显示系统版本信息和ASCII艺术图", "version"},
+    
+    {"clear", "clear", "清屏", "clear"},
+    
+    {"test", "test [参数]", "参数测试命令，显示通道ID和参数信息", 
+     "test\r\n"
+     "test abc 123"},
+    
+    {"kv", "kv <操作> [参数]", "键值存储操作",
+     "kv set mykey 123\r\n"
+     "kv get mykey\r\n"
+     "kv list\r\n"
+     "kv del mykey\r\n"
+     "kv clear"},
+    
+    {"buffer", "buffer [操作] [参数]", "宏缓冲区管理",
+     "buffer\r\n"
+     "buffer list\r\n"
+     "buffer show mymacro\r\n"
+     "buffer exec mymacro\r\n"
+     "buffer del mymacro\r\n"
+     "buffer clear"},
+    
+    // 系统命令
+    {"status", "status [参数]", "显示系统状态信息", "status"},
+    
+    {"led", "led <on|off>", "控制LED开关",
+     "led on\r\n"
+     "led off"},
+    
+    {"tasks", "tasks", "显示所有FreeRTOS任务信息", "tasks"},
+    
+    {"heap", "heap", "显示内存使用情况", "heap"},
+    
+    {"uptime", "uptime", "显示系统运行时间", "uptime"},
+    
+    {"cpu", "cpu", "显示CPU使用率", "cpu"},
+    
+    {"reset", "reset", "重启系统", "reset"},
+    
+    {"delay", "delay <毫秒数>", "延时指定毫秒数",
+     "delay 1000\r\n"
+     "delay 500"},
+    
+    // FreeRTOS命令  
+    {"queue", "queue <操作>", "队列操作",
+     "queue create\r\n"
+     "queue send\r\n"
+     "queue receive"},
+    
+    {"sem", "sem <操作>", "信号量操作",
+     "sem create\r\n"
+     "sem take\r\n"
+     "sem give"},
+    
+    {"timer", "timer <操作>", "定时器操作",
+     "timer create\r\n"
+     "timer start\r\n"
+     "timer stop"},
+    
+    // 文件系统命令
+    {"pwd", "pwd", "显示当前工作目录", "pwd"},
+    
+    {"cd", "cd [目录]", "切换工作目录",
+     "cd /sdcard\r\n"
+     "cd ..\r\n"
+     "cd subfolder"},
+    
+    {"ls", "ls [目录]", "列出目录内容",
+     "ls\r\n"
+     "ls /sdcard\r\n"
+     "ls subfolder"},
+    
+    {"mkdir", "mkdir <目录名>", "创建目录",
+     "mkdir newfolder\r\n"
+     "mkdir /sdcard/data"},
+    
+    {"rmdir", "rmdir [-r] <目录名>", "删除目录。-r选项递归删除非空目录",
+     "rmdir emptyfolder\r\n"
+     "rmdir -r fullfolder"},
+    
+    {"rm", "rm <文件名>", "删除文件",
+     "rm file.txt\r\n"
+     "rm /sdcard/data.log"},
+    
+    {"cp", "cp <源文件> <目标文件>", "复制文件",
+     "cp file1.txt file2.txt\r\n"
+     "cp /sdcard/src.txt /sdcard/backup/dst.txt"},
+    
+    {"mv", "mv <源文件> <目标文件>", "移动/重命名文件",
+     "mv oldname.txt newname.txt\r\n"
+     "mv file.txt /sdcard/backup/"},
+    
+    {"cat", "cat <文件名>", "显示文件内容",
+     "cat readme.txt\r\n"
+     "cat /sdcard/config.ini"},
+    
+    {"touch", "touch <文件名>", "创建空文件或更新文件时间戳",
+     "touch newfile.txt\r\n"
+     "touch /sdcard/log.txt"},
+    
+    {"du", "du [目录]", "显示目录使用情况",
+     "du\r\n"
+     "du /sdcard\r\n"
+     "du subfolder"},
+    
+    {"find", "find <文件名模式>", "在当前目录查找文件",
+     "find config\r\n"
+     "find .txt\r\n"
+     "find data"},
+     
+    // 宏相关命令
+    {"macro", "macro <宏名称>", "开始录制宏命令",
+     "macro mymacro\r\n"
+     "macro backup_files"},
+     
+    {"endmacro", "endmacro", "停止录制宏命令", "endmacro"},
+    
+    {"exec", "exec [宏名称]", "执行宏命令",
+     "exec\r\n"
+     "exec mymacro"},
+     
+    {"jump", "jump <键名> <行号>", "条件跳转命令（仅在宏内使用）",
+     "jump status 5\r\n"
+     "jump count 10"}
+};
+
+static const size_t cmd_help_table_size = sizeof(cmd_help_table) / sizeof(cmd_help_table[0]);
+
 
 
 void task_help(uint32_t channel_id, const char *params) {
-    char help_text[1024];
-    snprintf(help_text, sizeof(help_text),
-             "=== ESP32 Shell 命令列表 ===\r\n"
-             "\r\n"
-             "【基础命令】\r\n"
-             "help - 显示此帮助信息\r\n"
-             "echo <text> - 回显文本\r\n"
-             "version - 显示版本信息\r\n"
-             "clear - 清屏\r\n"
-             "test <params> - 参数测试命令\r\n"
-             "kv <set|get|del|list|clear|count> - 键值存储操作\r\n"
-             "buffer [list|show|clear|exec|del] - 显示宏缓冲区\r\n"
-             "macro <名称> - 开始录制宏\r\n"
-             "endmacro - 停止录制宏\r\n"
-             "exec [macro|<名称>] - 执行宏\r\n"
-             "jump <键名> <行号> - 条件跳转命令(仅在宏内使用)\r\n"
-             "\r\n"
-             "【系统命令】\r\n"
-             "status [params] - 显示系统状态\r\n"
-             "led <on|off> - 控制LED\r\n"
-             "tasks - 显示所有任务信息\r\n"
-             "heap - 显示内存使用情况\r\n"
-             "uptime - 显示系统运行时间\r\n"
-             "cpu - 显示CPU使用率\r\n"
-             "reset - 重启系统\r\n"
-             "delay <ms> - 延时指定毫秒数\r\n"
-             "\r\n"
-             "【FreeRTOS命令】\r\n"
-             "queue <create|send|receive> - 队列操作\r\n"
-             "sem <create|take|give> - 信号量操作\r\n"
-             "timer <create|start|stop> - 定时器操作\r\n"
-             "==================\r\n"
-             "注意: 所有命令输出都会发送到对应的通信通道\r\n");
-
-    cmd_output(channel_id, (uint8_t *)help_text, strlen(help_text));
+    char response[2048];
+    
+    // 去除参数前后的空格
+    while (*params == ' ') params++;
+    
+    if (strlen(params) == 0) {
+        // 不带参数：显示所有命令的简要列表
+        snprintf(response, sizeof(response),
+                 "=== ESP32 Shell 命令列表 ===\r\n"
+                 "使用 'help <命令名>' 查看具体命令的详细帮助\r\n"
+                 "\r\n"
+                 "【基础命令】\r\n");
+        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        
+        // 显示基础命令
+        for (size_t i = 0; i < cmd_help_table_size; i++) {
+            if (i <= 6) { // 基础命令 (help, echo, version, clear, test, kv, buffer)
+                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                        cmd_help_table[i].name, cmd_help_table[i].description);
+                cmd_output(channel_id, (uint8_t *)response, strlen(response));
+            }
+        }
+        
+        snprintf(response, sizeof(response), "\r\n【系统命令】\r\n");
+        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        
+        // 显示系统命令  
+        for (size_t i = 0; i < cmd_help_table_size; i++) {
+            if (i >= 7 && i <= 13) { // 系统命令
+                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                        cmd_help_table[i].name, cmd_help_table[i].description);
+                cmd_output(channel_id, (uint8_t *)response, strlen(response));
+            }
+        }
+        
+        snprintf(response, sizeof(response), "\r\n【FreeRTOS命令】\r\n");
+        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        
+        // 显示FreeRTOS命令
+        for (size_t i = 0; i < cmd_help_table_size; i++) {
+            if (i >= 14 && i <= 16) { // FreeRTOS命令
+                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                        cmd_help_table[i].name, cmd_help_table[i].description);
+                cmd_output(channel_id, (uint8_t *)response, strlen(response));
+            }
+        }
+        
+        snprintf(response, sizeof(response), "\r\n【文件系统命令】\r\n");
+        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        
+        // 显示文件系统命令
+        for (size_t i = 0; i < cmd_help_table_size; i++) {
+            if (i >= 17 && i <= 29) { // 文件系统命令 (pwd到find)
+                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                        cmd_help_table[i].name, cmd_help_table[i].description);
+                cmd_output(channel_id, (uint8_t *)response, strlen(response));
+            }
+        }
+        
+        snprintf(response, sizeof(response), "\r\n【宏命令】\r\n");
+        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        
+        // 显示宏命令
+        for (size_t i = 0; i < cmd_help_table_size; i++) {
+            if (i >= 30) { // 宏命令 (macro, endmacro, exec, jump)
+                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                        cmd_help_table[i].name, cmd_help_table[i].description);
+                cmd_output(channel_id, (uint8_t *)response, strlen(response));
+            }
+        }
+        
+        snprintf(response, sizeof(response), 
+                "\r\n==================\r\n"
+                "总共 %zu 个命令可用\r\n"
+                "提示: 使用 'help <命令名>' 查看命令的详细用法和示例\r\n", 
+                cmd_help_table_size);
+        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        
+    } else {
+        // 带参数：显示指定命令的详细帮助
+        bool found = false;
+        
+        for (size_t i = 0; i < cmd_help_table_size; i++) {
+            if (strcmp(cmd_help_table[i].name, params) == 0) {
+                found = true;
+                
+                snprintf(response, sizeof(response),
+                        "=== 命令详细帮助: %s ===\r\n"
+                        "\r\n"
+                        "用法:\r\n"
+                        "  %s\r\n"
+                        "\r\n"
+                        "描述:\r\n"
+                        "  %s\r\n"
+                        "\r\n"
+                        "示例:\r\n",
+                        cmd_help_table[i].name,
+                        cmd_help_table[i].usage,
+                        cmd_help_table[i].description);
+                cmd_output(channel_id, (uint8_t *)response, strlen(response));
+                
+                // 分行显示示例
+                const char *examples = cmd_help_table[i].examples;
+                char example_line[256];
+                const char *line_start = examples;
+                const char *line_end;
+                
+                while ((line_end = strstr(line_start, "\r\n")) != NULL) {
+                    size_t line_len = line_end - line_start;
+                    if (line_len < sizeof(example_line) - 4) {
+                        strncpy(example_line, line_start, line_len);
+                        example_line[line_len] = '\0';
+                        snprintf(response, sizeof(response), "  %s\r\n", example_line);
+                        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+                    }
+                    line_start = line_end + 2; // 跳过 \r\n
+                }
+                
+                // 处理最后一行（没有\r\n结尾的）
+                if (strlen(line_start) > 0) {
+                    snprintf(response, sizeof(response), "  %s\r\n", line_start);
+                    cmd_output(channel_id, (uint8_t *)response, strlen(response));
+                }
+                
+                snprintf(response, sizeof(response), "==================\r\n");
+                cmd_output(channel_id, (uint8_t *)response, strlen(response));
+                break;
+            }
+        }
+        
+        if (!found) {
+            snprintf(response, sizeof(response), 
+                    "错误: 未找到命令 '%s'\r\n"
+                    "使用 'help' 查看所有可用命令\r\n", params);
+            cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        }
+    }
 }
 
 void task_echo(uint32_t channel_id, const char *params) {
