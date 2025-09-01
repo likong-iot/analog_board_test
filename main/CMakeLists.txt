@@ -3,6 +3,7 @@ idf_component_register(
         "analog_board_test_main.c"
         "uart_driver.c"
         "sd.c"
+        "i2c_config.c"
     INCLUDE_DIRS 
         "."
     REQUIRES 
@@ -11,4 +12,5 @@ idf_component_register(
         nvs_flash
         fatfs
         wear_levelling
+        tca9535_driver
 )
