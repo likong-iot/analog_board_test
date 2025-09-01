@@ -3,6 +3,7 @@
 #include "cmd/cmd_basic.h"
 #include "cmd/cmd_system.h"
 #include "cmd/cmd_freertos.h"
+#include "cmd/cmd_filesystem.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -40,6 +41,20 @@ void cmd_init(void) {
     cmd_register_task("queue", task_queue, "队列操作 (create/send/receive)");
     cmd_register_task("sem", task_sem, "信号量操作 (create/take/give)");
     cmd_register_task("timer", task_timer, "定时器操作 (create/start/stop)");
+    
+    // 注册文件系统命令
+    cmd_register_task("pwd", task_pwd, "显示当前工作目录");
+    cmd_register_task("cd", task_cd, "切换工作目录");
+    cmd_register_task("ls", task_ls, "列出目录内容");
+    cmd_register_task("mkdir", task_mkdir, "创建目录");
+    cmd_register_task("rmdir", task_rmdir, "删除空目录");
+    cmd_register_task("rm", task_rm, "删除文件");
+    cmd_register_task("cp", task_cp, "复制文件");
+    cmd_register_task("mv", task_mv, "移动/重命名文件");
+    cmd_register_task("cat", task_cat, "显示文件内容");
+    cmd_register_task("touch", task_touch, "创建空文件");
+    cmd_register_task("du", task_du, "显示目录使用情况");
+    cmd_register_task("find", task_find, "查找文件");
 
-    ESP_LOGI(TAG, "命令系统初始化完成，已注册 %zu 个任务", (size_t)18);
+    ESP_LOGI(TAG, "命令系统初始化完成，已注册 %zu 个任务", (size_t)30);
 }

@@ -41,9 +41,9 @@ typedef struct {
   uint32_t channel_id;                        // 通信通道ID（可以是UART号、网络端口等）
   const char *channel_name;                   // 通道名称（如"UART1", "TCP", "BLE"等）
   shell_output_func_t output_func;            // 输出函数指针
-  const char *prompt;                         // 提示符
+  const char *prompt;                         // 基础提示符
   bool enabled;                               // 是否启用
-  void *user_data;                            // 用户自定义数据
+  void *user_data;                            // 用户自定义数据（用于存储当前工作目录）
 } shell_config_t;
 
 // 命令队列项结构体
@@ -174,6 +174,9 @@ const cmd_task_t *cmd_get_task_list(size_t *count);
 // 提示符相关函数
 void cmd_show_prompt(uint32_t channel_id);
 void cmd_show_command(uint32_t channel_id, const char *command);
+
+// 动态提示符生成函数
+void cmd_generate_prompt(uint32_t channel_id, char *prompt_buffer, size_t buffer_size);
 
 // 内部使用的输出函数（通过I/O接口调用）
 void cmd_output(uint32_t channel_id, const uint8_t *data, size_t length);

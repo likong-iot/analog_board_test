@@ -8,6 +8,7 @@
 #include "freertos/semphr.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static const char *TAG = "SHELL";
 
@@ -98,6 +99,14 @@ shell_instance_t* shell_create_instance(const shell_config_t *config) {
   // 初始化宏缓冲区
   macro_buffer_init(&instance->macro_buffer);
   
+  // 初始化当前工作目录
+  if (instance->config.user_data == NULL) {
+    instance->config.user_data = malloc(512);  // 为当前工作目录分配空间
+    if (instance->config.user_data != NULL) {
+      strcpy((char*)instance->config.user_data, "/sdcard");  // 默认工作目录
+    }
+  }
+  
   instance->parser_task_handle = NULL;
   instance->executor_task_handle = NULL;
   instance->initialized = true;
@@ -115,15 +124,12 @@ shell_instance_t* shell_create_instance(const shell_config_t *config) {
 static void shell_parser_task(void *arg) {
   shell_instance_t *instance = (shell_instance_t *)arg;
   uint32_t channel_id = instance->config.channel_id;
-  const char *prompt = instance->config.prompt ? instance->config.prompt : "shell> ";
   const char *channel_name = instance->config.channel_name ? instance->config.channel_name : "未知";
   
   ESP_LOGI(TAG, "Shell解析任务启动，通道ID: %lu, 名称: %s", channel_id, channel_name);
   
-  // 显示初始提示符
-  if (instance->config.output_func) {
-    instance->config.output_func(channel_id, (uint8_t *)prompt, strlen(prompt));
-  }
+  // 显示初始动态提示符
+  cmd_show_prompt(channel_id);
   
   while (instance->initialized) {
     char all_commands[MAX_CMD_LENGTH * 4]; // 支持多个命令
@@ -153,7 +159,6 @@ static void shell_parser_task(void *arg) {
 static void shell_executor_task(void *arg) {
   shell_instance_t *instance = (shell_instance_t *)arg;
   uint32_t channel_id = instance->config.channel_id;
-  const char *prompt = instance->config.prompt ? instance->config.prompt : "shell> ";
   const char *channel_name = instance->config.channel_name ? instance->config.channel_name : "未知";
   
   ESP_LOGI(TAG, "Shell执行任务启动，通道ID: %lu, 名称: %s", channel_id, channel_name);
@@ -173,10 +178,8 @@ static void shell_executor_task(void *arg) {
       // 执行命令
       cmd_execute(channel_id, command);
       
-      // 显示新的提示符
-      if (instance->config.output_func) {
-        instance->config.output_func(channel_id, (uint8_t *)prompt, strlen(prompt));
-      }
+      // 显示新的动态提示符
+      cmd_show_prompt(channel_id);
     }
     
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -1382,8 +1385,39 @@ const cmd_task_t *cmd_get_task_list(size_t *count) {
   return task_list;
 }
 
+// 动态提示符生成函数
+void cmd_generate_prompt(uint32_t channel_id, char *prompt_buffer, size_t buffer_size) {
+  shell_instance_t *instance = shell_get_instance_by_channel(channel_id);
+  if (instance == NULL) {
+    snprintf(prompt_buffer, buffer_size, "esp32shell> ");
+    return;
+  }
+  
+  const char *base_prompt = instance->config.prompt ? instance->config.prompt : "esp32shell";
+  
+  // 获取当前工作目录
+  if (instance->config.user_data != NULL) {
+    char *cwd = (char*)instance->config.user_data;
+    // 只显示目录名，不显示完整路径
+    char *dir_name = strrchr(cwd, '/');
+    if (dir_name != NULL) {
+      dir_name++; // 跳过'/'
+      if (strlen(dir_name) == 0) {
+        dir_name = "root";
+      }
+    } else {
+      dir_name = cwd;
+    }
+    
+    snprintf(prompt_buffer, buffer_size, "%s:%s> ", base_prompt, dir_name);
+  } else {
+    snprintf(prompt_buffer, buffer_size, "%s> ", base_prompt);
+  }
+}
+
 void cmd_show_prompt(uint32_t channel_id) {
-  const char *prompt = "esp32shell> ";
+  char prompt[128];
+  cmd_generate_prompt(channel_id, prompt, sizeof(prompt));
   cmd_output(channel_id, (uint8_t *)prompt, strlen(prompt));
 }
 

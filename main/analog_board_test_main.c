@@ -8,6 +8,7 @@
 // Shell组件头文件
 #include "shell.h"
 #include "uart_driver.h"
+#include "sd.h"
 
 static const char *TAG = "MAIN";
 
@@ -31,6 +32,17 @@ void app_main(void)
     if (!uart_driver_init()) {
         ESP_LOGE(TAG, "UART驱动初始化失败");
         return;
+    }
+    
+    // 初始化SD卡
+    esp_err_t sd_ret = sd_card_init();
+    if (sd_ret == ESP_OK) {
+        ESP_LOGI(TAG, "SD卡初始化成功");
+        // 执行SD卡基本测试
+        sd_card_test_basic();
+    } else {
+        ESP_LOGW(TAG, "SD卡初始化失败: %s", esp_err_to_name(sd_ret));
+        ESP_LOGW(TAG, "系统将继续运行，但SD卡功能不可用");
     }
     
     // 初始化Shell系统（包含命令注册）
@@ -72,6 +84,7 @@ void app_main(void)
     ESP_LOGI(TAG, "UART1 Shell: 通道ID=1, 引脚 TX=%d/RX=%d", 22, 23);
     ESP_LOGI(TAG, "UART2 Shell: 通道ID=2, 引脚 TX=%d/RX=%d", 27, 26);
     ESP_LOGI(TAG, "波特率: 115200");
+    ESP_LOGI(TAG, "SD卡状态: %s", sd_card_is_mounted() ? "已挂载" : "未挂载");
     ESP_LOGI(TAG, "可用命令: help, echo, version, kv, tasks, heap等");
     
     // 主循环 - 监控系统状态

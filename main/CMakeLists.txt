@@ -2,10 +2,13 @@ idf_component_register(
     SRCS 
         "analog_board_test_main.c"
         "uart_driver.c"
+        "sd.c"
     INCLUDE_DIRS 
         "."
     REQUIRES 
         esp32shell
         driver
         nvs_flash
+        fatfs
+        wear_levelling
 )
