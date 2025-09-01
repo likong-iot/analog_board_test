@@ -23,38 +23,7 @@ static shell_instance_t *uart2_shell = NULL;
 // TCA9535设备句柄
 static tca9535_handle_t tca9535_handle = NULL;
 
-/**
- * @brief 扫描I2C总线上的设备
- * @return 找到的设备数量
- */
-static int i2c_scan_devices(void)
-{
-    ESP_LOGI(TAG, "开始扫描I2C总线设备...");
-    int found_devices = 0;
-    
-    for (uint8_t addr = 0x08; addr <= 0x77; addr++) {
-        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-        i2c_master_start(cmd);
-        i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
-        i2c_master_stop(cmd);
-        
-        esp_err_t ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(100));
-        i2c_cmd_link_delete(cmd);
-        
-        if (ret == ESP_OK) {
-            ESP_LOGI(TAG, "发现I2C设备，地址: 0x%02X", addr);
-            found_devices++;
-        }
-    }
-    
-    if (found_devices == 0) {
-        ESP_LOGW(TAG, "未发现任何I2C设备");
-    } else {
-        ESP_LOGI(TAG, "总共发现 %d 个I2C设备", found_devices);
-    }
-    
-    return found_devices;
-}
+
 
 void app_main(void)
 {
@@ -74,24 +43,28 @@ void app_main(void)
         return;
     }
     
-    // 初始化I2C总线
-    ESP_LOGI(TAG, "初始化I2C总线...");
+    // 初始化I2C总线配置
+    ESP_LOGI(TAG, "配置I2C总线...");
     ret = i2c_master_init();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "I2C总线初始化失败: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "I2C总线配置失败: %s", esp_err_to_name(ret));
         return;
     }
-    ESP_LOGI(TAG, "I2C总线初始化成功");
-    
-    // 扫描I2C总线设备
-    int device_count = i2c_scan_devices();
     
     // 初始化TCA9535 I/O扩展器
     ESP_LOGI(TAG, "初始化TCA9535 I/O扩展器...");
     tca9535_config_t tca9535_config = {
-        .i2c_port = I2C_MASTER_NUM,
-        .device_addr = TCA9535_I2C_ADDR,
-        .timeout_ms = I2C_MASTER_TIMEOUT_MS
+        .i2c_dev = {
+            .port = I2C_MASTER_NUM,
+            .addr = TCA9535_I2C_ADDR,
+            .cfg = {
+                .sda_io_num = I2C_MASTER_SDA_IO,
+                .scl_io_num = I2C_MASTER_SCL_IO,
+                .sda_pullup_en = true,
+                .scl_pullup_en = true,
+                .master.clk_speed = I2C_MASTER_FREQ_HZ
+            }
+        }
     };
     
     ret = tca9535_create(&tca9535_config, &tca9535_handle);
@@ -113,6 +86,16 @@ void app_main(void)
             tca9535_delete(tca9535_handle);
             tca9535_handle = NULL;
         }
+    }
+    
+    // 初始化ADS1115 ADC
+    ESP_LOGI(TAG, "初始化ADS1115 ADC...");
+    ret = ads1115_init();
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "ADS1115初始化成功");
+    } else {
+        ESP_LOGW(TAG, "ADS1115初始化失败: %s", esp_err_to_name(ret));
+        ESP_LOGW(TAG, "系统将继续运行，但ADS1115功能不可用");
     }
     
     // 初始化SD卡
@@ -168,6 +151,7 @@ void app_main(void)
     ESP_LOGI(TAG, "I2C总线: SCL=GPIO%d, SDA=GPIO%d", I2C_MASTER_SCL_IO, I2C_MASTER_SDA_IO);
     ESP_LOGI(TAG, "SD卡状态: %s", sd_card_is_mounted() ? "已挂载" : "未挂载");
     ESP_LOGI(TAG, "TCA9535状态: %s", tca9535_handle ? "已连接" : "未连接");
+    ESP_LOGI(TAG, "ADS1115状态: %s", ads1115_get_handle() ? "已连接" : "未连接");
     ESP_LOGI(TAG, "可用命令: help, echo, version, kv, tasks, heap等");
     
     // 主循环 - 监控系统状态

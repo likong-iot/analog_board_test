@@ -3,6 +3,6 @@
 idf_component_register(
     SRCS "tca9535.c"
     INCLUDE_DIRS "include"
-    REQUIRES driver log
+    REQUIRES esp-idf-lib__i2cdev log
     PRIV_REQUIRES main
 )

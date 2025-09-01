@@ -20,7 +20,7 @@
 #define TCA9535_H
 
 #include "esp_err.h"
-#include "driver/i2c.h"
+#include "i2cdev.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -85,9 +85,7 @@ typedef union {
  * @brief TCA9535配置结构体
  */
 typedef struct {
-    i2c_port_t i2c_port;            /*!< I2C端口号 */
-    uint8_t device_addr;             /*!< 设备I2C地址 */
-    uint32_t timeout_ms;             /*!< I2C操作超时时间(毫秒) */
+    i2c_dev_t i2c_dev;              /*!< I2C设备描述符 */
 } tca9535_config_t;
 
 /**

@@ -13,4 +13,5 @@ idf_component_register(
         fatfs
         wear_levelling
         tca9535_driver
+        esp-idf-lib__ads111x
 )

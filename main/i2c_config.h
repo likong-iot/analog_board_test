@@ -10,6 +10,7 @@
 #define I2C_CONFIG_H
 
 #include "driver/i2c.h"
+#include "esp_err.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,6 +61,23 @@ esp_err_t i2c_master_init(void);
  *         - ESP_FAIL: 反初始化失败
  */
 esp_err_t i2c_master_deinit(void);
+
+/**
+ * @brief 初始化ADS1115 ADC设备
+ * 
+ * @return esp_err_t
+ *         - ESP_OK: 初始化成功
+ *         - ESP_ERR_INVALID_ARG: 参数错误
+ *         - ESP_FAIL: 初始化失败
+ */
+esp_err_t ads1115_init(void);
+
+/**
+ * @brief 获取ADS1115设备句柄
+ * 
+ * @return 指向ADS1115设备描述符的指针，如果未初始化则返回NULL
+ */
+void* ads1115_get_handle(void);
 
 #ifdef __cplusplus
 }
