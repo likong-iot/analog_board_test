@@ -24,6 +24,7 @@ static const char *TAG = "TEST_CMD";
 static test_status_t g_test_status = {0};
 static TaskHandle_t test_task_handle = NULL;
 static SemaphoreHandle_t test_mutex = NULL;
+static uint32_t test_channel_id = 0; // 保存Shell通道ID用于打印
 
 // TCA9535句柄获取函数（在main中实现）
 extern tca9535_handle_t get_tca9535_handle(void);
@@ -118,26 +119,41 @@ static void test_task_main(void *arg)
             // 切换到下一个LED
             g_test_status.current_led = (g_test_status.current_led % TEST_LED_COUNT) + 1;
             
-            // 4. 持续打印测试数据到终端
-            printf("\r\n=== 测试循环 %lu ===\r\n", g_test_status.cycle_count);
-            printf("当前拉高IO: %d\r\n", g_test_status.current_io == 0 ? 8 : g_test_status.current_io); // 显示1-8
-            printf("当前点亮LED: %d\r\n", g_test_status.current_led == 1 ? 4 : g_test_status.current_led - 1); // 显示实际点亮的LED
-            
-            // 打印ADS1115数据
-            if (ads1115_get_handle() != NULL) {
-                printf("ADS1115数据:\r\n");
-                for (uint8_t ch = 0; ch < ADS1115_CHANNEL_COUNT; ch++) {
-                    if (channel_data[ch].status == ESP_OK) {
-                        printf("  CH%d: %.4fV, %.2fmA\r\n", 
-                               ch, channel_data[ch].voltage_v, channel_data[ch].current_ma);
-                    } else {
-                        printf("  CH%d: 读取错误\r\n", ch);
+            // 4. 持续打印测试数据到Shell终端
+            if (test_channel_id > 0) {
+                char output[512];
+                uint8_t display_io = (g_test_status.current_io == 0) ? 8 : g_test_status.current_io; // 显示1-8
+                uint8_t display_led = (g_test_status.current_led == 1) ? 4 : g_test_status.current_led - 1; // 显示实际点亮的LED
+                
+                snprintf(output, sizeof(output), "\r\n=== 测试循环 %lu ===\r\n", g_test_status.cycle_count);
+                cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
+                
+                snprintf(output, sizeof(output), "当前拉高IO: %d | 当前点亮LED: %d\r\n", display_io, display_led);
+                cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
+                
+                // 打印ADS1115数据到Shell终端
+                if (ads1115_get_handle() != NULL) {
+                    snprintf(output, sizeof(output), "ADS1115数据: ");
+                    for (uint8_t ch = 0; ch < ADS1115_CHANNEL_COUNT; ch++) {
+                        char ch_data[64];
+                        if (channel_data[ch].status == ESP_OK) {
+                            snprintf(ch_data, sizeof(ch_data), "CH%d:%.4fV,%.2fmA ", 
+                                   ch, channel_data[ch].voltage_v, channel_data[ch].current_ma);
+                        } else {
+                            snprintf(ch_data, sizeof(ch_data), "CH%d:ERROR ", ch);
+                        }
+                        strncat(output, ch_data, sizeof(output) - strlen(output) - 1);
                     }
+                    strncat(output, "\r\n", sizeof(output) - strlen(output) - 1);
+                    cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
+                } else {
+                    snprintf(output, sizeof(output), "ADS1115: 未连接\r\n");
+                    cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
                 }
-            } else {
-                printf("ADS1115: 未连接\r\n");
+                
+                snprintf(output, sizeof(output), "==================\r\n");
+                cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
             }
-            printf("==================\r\n");
             
             xSemaphoreGive(test_mutex);
         }
@@ -234,6 +250,7 @@ void task_test_control(uint32_t channel_id, const char *params)
         g_test_status.current_io = 0;
         g_test_status.current_led = 1;
         g_test_status.start_time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
+        test_channel_id = channel_id; // 保存Shell通道ID
         
         // 创建测试任务
         BaseType_t ret = xTaskCreate(test_task_main, "test_task", 4096, NULL, 5, &test_task_handle);
@@ -245,9 +262,10 @@ void task_test_control(uint32_t channel_id, const char *params)
                     "- TCA9535 IO1-8循环拉高\r\n"
                     "- LED1-4循环点亮\r\n"
                     "- 循环间隔: %dms\r\n"
-                    "- 终端持续打印测试数据\r\n"
+                    "- Shell终端持续打印测试数据\r\n"
                     "\r\n"
                     "使用 'testoff' 停止测试\r\n"
+                    "Shell将开始持续显示测试数据...\r\n"
                     "========================\r\n", TEST_CYCLE_INTERVAL_MS);
             ESP_LOGI(TAG, "自动化测试启动成功 - 终端将持续打印数据");
         } else {
@@ -266,7 +284,7 @@ void task_test_control(uint32_t channel_id, const char *params)
                 "- TCA9535 IO1-8循环拉高\r\n"
                 "- LED1-4循环点亮\r\n"
                 "- 循环间隔: %dms\r\n"
-                "- 终端持续打印测试数据\r\n", TEST_CYCLE_INTERVAL_MS);
+                "- Shell终端持续打印测试数据\r\n", TEST_CYCLE_INTERVAL_MS);
     }
     
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -284,6 +302,7 @@ void task_testoff_control(uint32_t channel_id, const char *params)
     
     // 停止测试
     g_test_status.running = false;
+    test_channel_id = 0; // 清除Shell通道ID
     
     // 等待测试任务结束
     if (test_task_handle != NULL) {
@@ -308,11 +327,11 @@ void task_testoff_control(uint32_t channel_id, const char *params)
             "=== 测试已停止 ===\r\n"
             "总循环次数: %lu\r\n"
             "测试时长: %.1f秒\r\n"
-            "终端打印已停止\r\n"
+            "Shell终端打印已停止\r\n"
             "==================\r\n",
             g_test_status.cycle_count,
             (xTaskGetTickCount() * portTICK_PERIOD_MS - g_test_status.start_time_ms) / 1000.0f);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     
-    ESP_LOGI(TAG, "自动化测试停止 - 终端打印已停止");
+    ESP_LOGI(TAG, "自动化测试停止 - Shell终端打印已停止");
 }
