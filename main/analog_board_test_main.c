@@ -18,6 +18,9 @@
 #include "led.h"
 #include "led_commands.h"
 
+// 按键驱动头文件
+#include "key.h"
+
 // 测试命令头文件
 #include "test_commands.h"
 
@@ -57,6 +60,13 @@ void app_main(void) {
   ret = led_init();
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "LED模块初始化失败: %s", esp_err_to_name(ret));
+    return;
+  }
+  
+  // 初始化按键模块
+  ret = key_init();
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "按键模块初始化失败: %s", esp_err_to_name(ret));
     return;
   }
 
@@ -188,6 +198,7 @@ void app_main(void) {
            I2C_MASTER_SDA_IO);
   ESP_LOGI(TAG, "LED状态: LED1=GPIO%d, LED2=GPIO%d, LED3=GPIO%d, LED4=GPIO%d", 
            LED1_GPIO, LED2_GPIO, LED3_GPIO, LED4_GPIO);
+  ESP_LOGI(TAG, "按键状态: KEY=GPIO%d", KEY_GPIO);
   ESP_LOGI(TAG, "SD卡状态: %s", sd_card_is_mounted() ? "已挂载" : "未挂载");
   ESP_LOGI(TAG, "TCA9535状态: %s", tca9535_handle ? "已连接" : "未连接");
   ESP_LOGI(TAG, "ADS1115状态: %s", ads1115_get_handle() ? "已连接" : "未连接");

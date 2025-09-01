@@ -370,7 +370,7 @@ void task_version(uint32_t channel_id, const char *params) {
     }
     
     // 发送版本信息
-    cmd_output(channel_id, (uint8_t *)"立控esp32shell v1.0\r\n", 22);
+    cmd_output(channel_id, (uint8_t *)"立控analogboard硬件测试固件 v1.0\r\n", 44);
 }
 
 void task_clear(uint32_t channel_id, const char *params) {

@@ -6,6 +6,7 @@ idf_component_register(
         "i2c_config.c"
         "led.c"
         "led_commands.c"
+        "key.c"
         "test_commands.c"
     INCLUDE_DIRS 
         "."

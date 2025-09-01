@@ -8,6 +8,7 @@
 #include "i2c_config.h"
 #include "tca9535.h"
 #include "sd.h"
+#include "key.h"
 #include "shell.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -28,6 +29,34 @@ static uint32_t test_channel_id = 0; // 保存Shell通道ID用于打印
 
 // TCA9535句柄获取函数（在main中实现）
 extern tca9535_handle_t get_tca9535_handle(void);
+
+/**
+ * @brief 按键事件回调函数
+ */
+static void key_event_handler(key_event_t event, uint32_t timestamp_ms)
+{
+    if (!g_test_status.running || test_channel_id == 0) {
+        return; // 测试未运行或没有Shell通道，忽略按键事件
+    }
+    
+    char output[128];
+    const char *event_str = (event == KEY_EVENT_PRESSED) ? "按下" : "松开";
+    
+    // 在Shell中打印按键事件
+    snprintf(output, sizeof(output), "\r\n>>> 按键%s (时间戳: %lu ms) <<<\r\n", event_str, timestamp_ms);
+    cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
+    
+    // 记录到日志文件
+    if (sd_card_is_mounted()) {
+        FILE *file = fopen(TEST_LOG_FILE_PATH, "a");
+        if (file != NULL) {
+            fprintf(file, "KEY_EVENT,%lu,%s,,,,,,,,,,,\n", timestamp_ms, event_str);
+            fclose(file);
+        }
+    }
+    
+    ESP_LOGI(TAG, "按键%s事件已处理 (时间戳: %lu)", event_str, timestamp_ms);
+}
 
 /**
  * @brief 写入测试数据到SD卡
@@ -252,6 +281,10 @@ void task_test_control(uint32_t channel_id, const char *params)
         g_test_status.start_time_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
         test_channel_id = channel_id; // 保存Shell通道ID
         
+        // 设置按键事件回调并启动按键检测
+        key_set_event_callback(key_event_handler);
+        key_start_detection();
+        
         // 创建测试任务
         BaseType_t ret = xTaskCreate(test_task_main, "test_task", 4096, NULL, 5, &test_task_handle);
         if (ret == pdPASS) {
@@ -263,6 +296,7 @@ void task_test_control(uint32_t channel_id, const char *params)
                     "- LED1-4循环点亮\r\n"
                     "- 循环间隔: %dms\r\n"
                     "- Shell终端持续打印测试数据\r\n"
+                    "- 按键检测(GPIO35)和事件记录\r\n"
                     "\r\n"
                     "使用 'testoff' 停止测试\r\n"
                     "Shell将开始持续显示测试数据...\r\n"
@@ -284,7 +318,8 @@ void task_test_control(uint32_t channel_id, const char *params)
                 "- TCA9535 IO1-8循环拉高\r\n"
                 "- LED1-4循环点亮\r\n"
                 "- 循环间隔: %dms\r\n"
-                "- Shell终端持续打印测试数据\r\n", TEST_CYCLE_INTERVAL_MS);
+                "- Shell终端持续打印测试数据\r\n"
+                "- 按键检测(GPIO35)和事件记录\r\n", TEST_CYCLE_INTERVAL_MS);
     }
     
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -303,6 +338,10 @@ void task_testoff_control(uint32_t channel_id, const char *params)
     // 停止测试
     g_test_status.running = false;
     test_channel_id = 0; // 清除Shell通道ID
+    
+    // 停止按键检测
+    key_stop_detection();
+    key_set_event_callback(NULL);
     
     // 等待测试任务结束
     if (test_task_handle != NULL) {
