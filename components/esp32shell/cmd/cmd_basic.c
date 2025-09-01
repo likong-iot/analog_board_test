@@ -153,7 +153,14 @@ static const cmd_help_info_t cmd_help_table[] = {
      
     {"jump", "jump <键名> <行号>", "条件跳转命令（仅在宏内使用）",
      "jump status 5\r\n"
-     "jump count 10"}
+     "jump count 10"},
+     
+    // 自定义测试命令
+    {"test", "test", "开始自动化测试(IO1-8循环,LED1-4循环,终端持续打印)",
+     "test"},
+     
+    {"testoff", "testoff", "停止自动化测试",
+     "testoff"}
 };
 
 static const size_t cmd_help_table_size = sizeof(cmd_help_table) / sizeof(cmd_help_table[0]);
@@ -225,7 +232,19 @@ void task_help(uint32_t channel_id, const char *params) {
         
         // 显示宏命令
         for (size_t i = 0; i < cmd_help_table_size; i++) {
-            if (i >= 30) { // 宏命令 (macro, endmacro, exec, jump)
+            if (i >= 30 && i <= 33) { // 宏命令 (macro, endmacro, exec, jump)
+                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                        cmd_help_table[i].name, cmd_help_table[i].description);
+                cmd_output(channel_id, (uint8_t *)response, strlen(response));
+            }
+        }
+        
+        snprintf(response, sizeof(response), "\r\n【测试命令】\r\n");
+        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        
+        // 显示测试命令
+        for (size_t i = 0; i < cmd_help_table_size; i++) {
+            if (i >= 34) { // 测试命令 (test, testoff)
                 snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
                         cmd_help_table[i].name, cmd_help_table[i].description);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));

@@ -18,6 +18,9 @@
 #include "led.h"
 #include "led_commands.h"
 
+// 测试命令头文件
+#include "test_commands.h"
+
 static const char *TAG = "MAIN";
 
 // Shell实例指针
@@ -26,6 +29,15 @@ static shell_instance_t *uart2_shell = NULL;
 
 // TCA9535设备句柄
 static tca9535_handle_t tca9535_handle = NULL;
+
+/**
+ * @brief 获取TCA9535设备句柄
+ * @return TCA9535设备句柄，如果未初始化则返回NULL
+ */
+tca9535_handle_t get_tca9535_handle(void)
+{
+    return tca9535_handle;
+}
 
 
 
@@ -124,8 +136,17 @@ void app_main(void) {
   // 初始化Shell系统（包含命令注册）
   shell_system_init();
   
-  // 注册LED控制命令
+  // 初始化测试模块
+  ret = test_module_init();
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "测试模块初始化失败: %s", esp_err_to_name(ret));
+    return;
+  }
+  
+  // 注册自定义命令
   cmd_register_task("led", task_led_control, "控制LED (on/off/toggle/blink)");
+  cmd_register_task("test", task_test_control, "开始自动化测试");
+  cmd_register_task("testoff", task_testoff_control, "停止自动化测试");
 
   // 创建UART1的Shell实例
   shell_config_t uart1_config =
@@ -170,39 +191,16 @@ void app_main(void) {
   ESP_LOGI(TAG, "SD卡状态: %s", sd_card_is_mounted() ? "已挂载" : "未挂载");
   ESP_LOGI(TAG, "TCA9535状态: %s", tca9535_handle ? "已连接" : "未连接");
   ESP_LOGI(TAG, "ADS1115状态: %s", ads1115_get_handle() ? "已连接" : "未连接");
-  ESP_LOGI(TAG, "可用命令: help, echo, version, kv, tasks, heap等");
+  ESP_LOGI(TAG, "可用命令: help, echo, version, kv, tasks, heap, led, test, testoff等");
 
-  // LED启动指示：快速闪烁3次
-  ESP_LOGI(TAG, "系统启动完成，LED指示...");
-  led_blink(LED_ALL, 3, 200);
-  
+
   static uint32_t loop_count = 0;
   
   while (1) {
     loop_count++;
     
-    // 读取ADS1115所有通道数据
-    if (ads1115_get_handle() != NULL) {
-      ads1115_channel_data_t channel_data[ADS1115_CHANNEL_COUNT];
-      if (ads1115_read_all_detailed(channel_data) == ESP_OK) {
-        ESP_LOGI(TAG, "=== ADS1115电流监测 (循环%lu) ===", loop_count);
-        for (uint8_t ch = 0; ch < ADS1115_CHANNEL_COUNT; ch++) {
-          if (channel_data[ch].status == ESP_OK) {
-            ESP_LOGI(TAG, "CH%d: %.2fmA (%.4fV, 原始值=%d)", 
-                     ch, channel_data[ch].current_ma, channel_data[ch].voltage_v, channel_data[ch].raw_value);
-          } else {
-            ESP_LOGE(TAG, "CH%d: 读取失败 - %s", ch, esp_err_to_name(channel_data[ch].status));
-          }
-        }
-        ESP_LOGI(TAG, "========================");
-      }
-    }
     
-    // 每10个循环（20秒）LED1闪烁一次作为心跳指示
-    if (loop_count % 10 == 0) {
-      led_blink(LED_1, 1, 100);
-    }
     
-    vTaskDelay(pdMS_TO_TICKS(2000));  // 每2秒读取一次，方便观察
+    vTaskDelay(pdMS_TO_TICKS(2000));  // 每2秒检查一次
   }
 }
