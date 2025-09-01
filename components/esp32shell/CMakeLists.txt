@@ -1,0 +1,15 @@
+idf_component_register(
+    SRCS 
+        "shell.c" 
+        "cmd.c"
+        "cmd/cmd_basic.c"
+        "cmd/cmd_system.c"
+        "cmd/cmd_freertos.c"
+    INCLUDE_DIRS 
+        "include" 
+        "cmd"
+    REQUIRES 
+        driver 
+        esp_system 
+        freertos
+) 
