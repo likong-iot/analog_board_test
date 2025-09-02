@@ -116,6 +116,8 @@ static const utf8_to_gb2312_map_t utf8_gb2312_map[] = {
     
     // 补充缺失的字符（去重）
     {"表", "\xB1\xED"}, {"输", "\xCA\xE4"}, {"和", "\xBA\xCD"}, {"况", "\xBF\xF6"}, {"始", "\xCA\xBC"}, {"带", "\xB4\xF8"},
+    {"计", "\xBC\xC6"}, {"数", "\xCA\xFD"}, {"目", "\xC4\xBF"}, {"录", "\xC2\xBC"}, {"总", "\xD7\xDC"}, {"个", "\xB8\xF6"},
+    {"文", "\xCE\xC4"}, {"件", "\xBC\xFE"}, {"状", "\xD7\xB4"}, {"情", "\xC7\xE9"},
 };
 
 static const size_t utf8_gb2312_map_size = sizeof(utf8_gb2312_map) / sizeof(utf8_gb2312_map[0]);
@@ -223,6 +225,7 @@ static esp_err_t convert_utf8_to_gb2312(const char *src, char *dest, size_t dest
                     dest_pos += gb2312_len;
                     src_pos += utf8_len;
                     found = true;
+                    ESP_LOGD(TAG, "找到映射: %s -> %s", utf8_gb2312_map[i].utf8, utf8_gb2312_map[i].gb2312);
                     break;
                 }
             }
@@ -231,12 +234,13 @@ static esp_err_t convert_utf8_to_gb2312(const char *src, char *dest, size_t dest
         if (!found) {
             // 未找到映射的非ASCII字符，打印UTF-8字节序列用于调试
             if (src_pos + 2 < src_len) {
-                ESP_LOGW(TAG, "未找到映射的UTF-8字符: 0x%02X 0x%02X 0x%02X", 
+                ESP_LOGW(TAG, "未找到映射的UTF-8字符: 0x%02X 0x%02X 0x%02X (位置: %zu)", 
                          (unsigned char)src[src_pos], 
                          (unsigned char)src[src_pos+1], 
-                         (unsigned char)src[src_pos+2]);
+                         (unsigned char)src[src_pos+2],
+                         src_pos);
             } else {
-                ESP_LOGW(TAG, "未找到映射的字符: 0x%02X", (unsigned char)src[src_pos]);
+                ESP_LOGW(TAG, "未找到映射的字符: 0x%02X (位置: %zu)", (unsigned char)src[src_pos], src_pos);
             }
             
             // 尝试跳过UTF-8字符序列

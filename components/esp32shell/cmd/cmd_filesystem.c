@@ -250,7 +250,7 @@ void task_mkdir(uint32_t channel_id, const char *params) {
     char full_path[MAX_PATH_LEN];
     
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), "用法: mkdir <目录名>\r\n");
+        shell_snprintf(response, sizeof(response), "用法: mkdir <目录名>\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -267,7 +267,7 @@ void task_mkdir(uint32_t channel_id, const char *params) {
             strcat(full_path, "/");
             strcat(full_path, params);
         } else {
-            snprintf(response, sizeof(response), "错误: 路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -275,10 +275,10 @@ void task_mkdir(uint32_t channel_id, const char *params) {
     
     // 创建目录
     if (mkdir(full_path, 0755) == 0) {
-        snprintf(response, sizeof(response), "目录创建成功: %s\r\n", full_path);
+        shell_snprintf(response, sizeof(response), "目录创建成功: %s\r\n", full_path);
         ESP_LOGI(TAG, "目录创建成功: %s", full_path);
     } else {
-        snprintf(response, sizeof(response), "错误: 无法创建目录: %s (%s)\r\n", 
+        shell_snprintf(response, sizeof(response), "错误: 无法创建目录: %s (%s)\r\n", 
                 full_path, strerror(errno));
         ESP_LOGE(TAG, "无法创建目录: %s (%s)", full_path, strerror(errno));
     }
@@ -346,8 +346,8 @@ void task_rmdir(uint32_t channel_id, const char *params) {
     const char *dir_name = params;
     
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), "用法: rmdir [-r] <目录名>\r\n");
-        snprintf(response + strlen(response), sizeof(response) - strlen(response), "  -r  递归删除目录及其内容\r\n");
+        shell_snprintf(response, sizeof(response), "用法: rmdir [-r] <目录名>\r\n");
+        shell_snprintf(response + strlen(response), sizeof(response) - strlen(response), "  -r  递归删除目录及其内容\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -361,7 +361,7 @@ void task_rmdir(uint32_t channel_id, const char *params) {
     }
     
     if (strlen(dir_name) == 0) {
-        snprintf(response, sizeof(response), "错误: 请指定要删除的目录名\r\n");
+        shell_snprintf(response, sizeof(response), "错误: 请指定要删除的目录名\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }

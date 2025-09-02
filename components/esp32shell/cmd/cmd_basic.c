@@ -6,6 +6,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "string.h"
+#include "stdio.h"
+#include "stdbool.h"
 
 // 命令帮助信息结构
 typedef struct {
@@ -179,7 +181,7 @@ void task_help(uint32_t channel_id, const char *params) {
     
     if (strlen(params) == 0) {
         // 不带参数：显示所有命令的简要列表
-        snprintf(response, sizeof(response),
+        shell_snprintf(response, sizeof(response),
                  "=== ESP32 Shell 命令列表 ===\r\n"
                  "使用 'help <命令名>' 查看具体命令的详细帮助\r\n"
                  "\r\n"
@@ -189,7 +191,7 @@ void task_help(uint32_t channel_id, const char *params) {
         // 显示基础命令
         for (size_t i = 0; i < cmd_help_table_size; i++) {
             if (i <= 6) { // 基础命令 (help, echo, version, clear, test, kv, buffer)
-                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                shell_snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
                         cmd_help_table[i].name, cmd_help_table[i].description);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
@@ -201,7 +203,7 @@ void task_help(uint32_t channel_id, const char *params) {
         // 显示系统命令  
         for (size_t i = 0; i < cmd_help_table_size; i++) {
             if (i >= 7 && i <= 13) { // 系统命令
-                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                shell_snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
                         cmd_help_table[i].name, cmd_help_table[i].description);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
@@ -213,7 +215,7 @@ void task_help(uint32_t channel_id, const char *params) {
         // 显示FreeRTOS命令
         for (size_t i = 0; i < cmd_help_table_size; i++) {
             if (i >= 14 && i <= 16) { // FreeRTOS命令
-                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                shell_snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
                         cmd_help_table[i].name, cmd_help_table[i].description);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
@@ -225,7 +227,7 @@ void task_help(uint32_t channel_id, const char *params) {
         // 显示文件系统命令
         for (size_t i = 0; i < cmd_help_table_size; i++) {
             if (i >= 17 && i <= 29) { // 文件系统命令 (pwd到find)
-                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                shell_snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
                         cmd_help_table[i].name, cmd_help_table[i].description);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
@@ -237,7 +239,7 @@ void task_help(uint32_t channel_id, const char *params) {
         // 显示宏命令
         for (size_t i = 0; i < cmd_help_table_size; i++) {
             if (i >= 30 && i <= 33) { // 宏命令 (macro, endmacro, exec, jump)
-                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                shell_snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
                         cmd_help_table[i].name, cmd_help_table[i].description);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
@@ -249,7 +251,7 @@ void task_help(uint32_t channel_id, const char *params) {
         // 显示测试命令
         for (size_t i = 0; i < cmd_help_table_size; i++) {
             if (i >= 34) { // 测试命令 (test, testoff, encoding)
-                snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
+                shell_snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
                         cmd_help_table[i].name, cmd_help_table[i].description);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
@@ -270,7 +272,7 @@ void task_help(uint32_t channel_id, const char *params) {
             if (strcmp(cmd_help_table[i].name, params) == 0) {
                 found = true;
                 
-                snprintf(response, sizeof(response),
+                shell_snprintf(response, sizeof(response),
                         "=== 命令详细帮助: %s ===\r\n"
                         "\r\n"
                         "用法:\r\n"
@@ -296,7 +298,7 @@ void task_help(uint32_t channel_id, const char *params) {
                     if (line_len < sizeof(example_line) - 4) {
                         strncpy(example_line, line_start, line_len);
                         example_line[line_len] = '\0';
-                        snprintf(response, sizeof(response), "  %s\r\n", example_line);
+                        shell_snprintf(response, sizeof(response), "  %s\r\n", example_line);
                         cmd_output(channel_id, (uint8_t *)response, strlen(response));
                     }
                     line_start = line_end + 2; // 跳过 \r\n
@@ -304,18 +306,18 @@ void task_help(uint32_t channel_id, const char *params) {
                 
                 // 处理最后一行（没有\r\n结尾的）
                 if (strlen(line_start) > 0) {
-                    snprintf(response, sizeof(response), "  %s\r\n", line_start);
+                    shell_snprintf(response, sizeof(response), "  %s\r\n", line_start);
                     cmd_output(channel_id, (uint8_t *)response, strlen(response));
                 }
                 
-                snprintf(response, sizeof(response), "==================\r\n");
+                shell_snprintf(response, sizeof(response), "==================\r\n");
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
                 break;
             }
         }
         
         if (!found) {
-            snprintf(response, sizeof(response), 
+            shell_snprintf(response, sizeof(response), 
                     "错误: 未找到命令 '%s'\r\n"
                     "使用 'help' 查看所有可用命令\r\n", params);
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -374,7 +376,9 @@ void task_version(uint32_t channel_id, const char *params) {
     }
     
     // 发送版本信息
-    cmd_output(channel_id, (uint8_t *)"立控analogboard硬件测试固件 v1.0\r\n", 44);
+    char version_info[256];
+    shell_snprintf(version_info, sizeof(version_info), "立控analogboard硬件测试固件 v1.0\r\n");
+    cmd_output(channel_id, (uint8_t *)version_info, strlen(version_info));
 }
 
 void task_clear(uint32_t channel_id, const char *params) {
@@ -384,7 +388,7 @@ void task_clear(uint32_t channel_id, const char *params) {
 
 void task_test(uint32_t channel_id, const char *params) {
     char response[512];
-    snprintf(response, sizeof(response),
+    shell_snprintf(response, sizeof(response),
              "=== 参数测试 ===\r\n"
              "通信通道ID: %lu\r\n"
              "参数: '%s'\r\n"
@@ -399,7 +403,7 @@ void task_kv(uint32_t channel_id, const char *params) {
     char cmd[32], key[64], value_str[32];
     
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), 
+        shell_snprintf(response, sizeof(response), 
                 "键值存储命令用法:\r\n"
                 "kv set <key> <value>  - 设置键值对\r\n"
                 "kv get <key>          - 获取键值\r\n"
@@ -439,7 +443,7 @@ void task_kv(uint32_t channel_id, const char *params) {
     } else if (strcmp(cmd, "get") == 0) {
         uint32_t value;
         if (kv_store_get(&instance->kv_store, key, &value)) {
-            snprintf(response, sizeof(response), "%s = %lu\r\n", key, (unsigned long)value);
+            shell_snprintf(response, sizeof(response), "%s = %lu\r\n", key, (unsigned long)value);
         } else {
             shell_snprintf(response, sizeof(response), "键 '%s' 不存在\r\n", key);
         }
@@ -459,7 +463,7 @@ void task_kv(uint32_t channel_id, const char *params) {
             kv_store_list(&instance->kv_store, list_buffer, sizeof(list_buffer));
             cmd_output(channel_id, (uint8_t *)list_buffer, strlen(list_buffer));
             
-            snprintf(response, sizeof(response), "==================\r\n");
+            shell_snprintf(response, sizeof(response), "==================\r\n");
         } else {
             shell_snprintf(response, sizeof(response), "键值存储为空\r\n");
         }
@@ -492,7 +496,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
         size_t macro_count = macro_buffer_count(&instance->macro_buffer);
         bool is_recording = macro_buffer_is_recording(&instance->macro_buffer);
         
-        snprintf(response, sizeof(response), 
+        shell_snprintf(response, sizeof(response), 
                 "=== 宏缓冲区信息 ===\r\n"
                 "宏命令数量: %zu\r\n"
                 "录制状态: %s\r\n",
@@ -500,11 +504,11 @@ void task_buffer(uint32_t channel_id, const char *params) {
                 is_recording ? "正在录制" : "未录制");
         
         if (is_recording) {
-            snprintf(response + strlen(response), sizeof(response) - strlen(response),
+            shell_snprintf(response + strlen(response), sizeof(response) - strlen(response),
                     "当前宏名称: %s\r\n", instance->macro_buffer.current_macro_name);
         }
         
-        snprintf(response + strlen(response), sizeof(response) - strlen(response),
+        shell_snprintf(response + strlen(response), sizeof(response) - strlen(response),
                 "==================\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
@@ -517,7 +521,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
             macro_buffer_list(&instance->macro_buffer, list_buffer, sizeof(list_buffer));
             cmd_output(channel_id, (uint8_t *)list_buffer, strlen(list_buffer));
             
-            snprintf(response, sizeof(response), "==================\r\n");
+            shell_snprintf(response, sizeof(response), "==================\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
         } else {
             shell_snprintf(response, sizeof(response), "宏缓冲区为空\r\n");

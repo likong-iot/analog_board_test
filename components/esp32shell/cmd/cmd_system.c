@@ -175,7 +175,7 @@ void task_cpu(uint32_t channel_id, const char *params) {
         }
     }
     
-    snprintf(response, sizeof(response),
+    shell_snprintf(response, sizeof(response),
              "=== CPU状态 ===\r\n"
              "当前核心: %ld\r\n"
              "CPU使用率: %.1f%%\r\n"
@@ -199,7 +199,7 @@ void task_reset(uint32_t channel_id, const char *params) {
 
 void task_status(uint32_t channel_id, const char *params) {
     char response[512];
-    snprintf(response, sizeof(response),
+    shell_snprintf(response, sizeof(response),
              "=== 系统状态 ===\r\n"
              "通信通道ID: %lu\r\n"
              "可用内存: %lu bytes\r\n"
@@ -222,7 +222,7 @@ void task_led(uint32_t channel_id, const char *params) {
     } else if (strcmp(params, "off") == 0) {
         shell_snprintf(response, sizeof(response), "LED已关闭\r\n");
     } else {
-        snprintf(response, sizeof(response), "错误: 参数 '%s' 无效，应为 'on' 或 'off'\r\n", params);
+        shell_snprintf(response, sizeof(response), "错误: 参数 '%s' 无效，应为 'on' 或 'off'\r\n", params);
     }
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
 }
@@ -230,16 +230,16 @@ void task_led(uint32_t channel_id, const char *params) {
 void task_delay(uint32_t channel_id, const char *params) {
     char response[256];
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), "用法: delay <毫秒数>\r\n");
+        shell_snprintf(response, sizeof(response), "用法: delay <毫秒数>\r\n");
     } else {
         int ms = atoi(params);
         if (ms > 0) {
-            snprintf(response, sizeof(response), "延时 %d 毫秒...\r\n", ms);
+            shell_snprintf(response, sizeof(response), "延时 %d 毫秒...\r\n", ms);
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             vTaskDelay(pdMS_TO_TICKS(ms));
-            snprintf(response, sizeof(response), "延时完成\r\n");
+            shell_snprintf(response, sizeof(response), "延时完成\r\n");
         } else {
-            snprintf(response, sizeof(response), "错误: 无效的延时时间 '%s'\r\n", params);
+            shell_snprintf(response, sizeof(response), "错误: 无效的延时时间 '%s'\r\n", params);
         }
     }
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
