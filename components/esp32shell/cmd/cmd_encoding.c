@@ -213,20 +213,64 @@ static esp_err_t convert_utf8_to_gb2312(const char *src, char *dest, size_t dest
         
         bool found = false;
         
-        // 对于非ASCII字符，查找UTF-8到GB2312的映射
-        for (size_t i = 0; i < utf8_gb2312_map_size; i++) {
-            size_t utf8_len = strlen(utf8_gb2312_map[i].utf8);
-            if (src_pos + utf8_len <= src_len && 
-                memcmp(src + src_pos, utf8_gb2312_map[i].utf8, utf8_len) == 0) {
-                // 找到映射，复制GB2312字符
-                size_t gb2312_len = strlen(utf8_gb2312_map[i].gb2312);
-                if (dest_pos + gb2312_len < dest_size) {
-                    memcpy(dest + dest_pos, utf8_gb2312_map[i].gb2312, gb2312_len);
-                    dest_pos += gb2312_len;
-                    src_pos += utf8_len;
-                    found = true;
-                    ESP_LOGD(TAG, "找到映射: %s -> %s", utf8_gb2312_map[i].utf8, utf8_gb2312_map[i].gb2312);
-                    break;
+        // 特殊处理经常出现警告的字符
+        if (src_pos + 2 < src_len && dest_pos + 2 < dest_size) {
+            if ((unsigned char)src[src_pos] == 0xE6 && (unsigned char)src[src_pos+1] == 0x8B && (unsigned char)src[src_pos+2] == 0x9F) {
+                // 拟
+                dest[dest_pos++] = 0xC4;
+                dest[dest_pos++] = 0xE3;
+                src_pos += 3;
+                found = true;
+            } else if ((unsigned char)src[src_pos] == 0xE6 && (unsigned char)src[src_pos+1] == 0x9D && (unsigned char)src[src_pos+2] == 0xBF) {
+                // 板
+                dest[dest_pos++] = 0xB0;
+                dest[dest_pos++] = 0xE5;
+                src_pos += 3;
+                found = true;
+            } else if ((unsigned char)src[src_pos] == 0xE4 && (unsigned char)src[src_pos+1] == 0xBC && (unsigned char)src[src_pos+2] == 0x9A) {
+                // 会
+                dest[dest_pos++] = 0xBB;
+                dest[dest_pos++] = 0xE1;
+                src_pos += 3;
+                found = true;
+            } else if ((unsigned char)src[src_pos] == 0xE8 && (unsigned char)src[src_pos+1] == 0xAF && (unsigned char)src[src_pos+2] == 0x9D) {
+                // 话
+                dest[dest_pos++] = 0xBB;
+                dest[dest_pos++] = 0xB0;
+                src_pos += 3;
+                found = true;
+            } else if ((unsigned char)src[src_pos] == 0xE7 && (unsigned char)src[src_pos+1] == 0xBB && (unsigned char)src[src_pos+2] == 0x93) {
+                // 结
+                dest[dest_pos++] = 0xBD;
+                dest[dest_pos++] = 0xE1;
+                src_pos += 3;
+                found = true;
+            } else if ((unsigned char)src[src_pos] == 0xE6 && (unsigned char)src[src_pos+1] == 0x9D && (unsigned char)src[src_pos+2] == 0x9F) {
+                // 束
+                dest[dest_pos++] = 0xCA;
+                dest[dest_pos++] = 0xF8;
+                src_pos += 3;
+                found = true;
+            }
+        }
+        
+        // 如果特殊处理没找到，再查找映射表
+        if (!found) {
+            // 对于非ASCII字符，查找UTF-8到GB2312的映射
+            for (size_t i = 0; i < utf8_gb2312_map_size; i++) {
+                size_t utf8_len = strlen(utf8_gb2312_map[i].utf8);
+                if (src_pos + utf8_len <= src_len && 
+                    memcmp(src + src_pos, utf8_gb2312_map[i].utf8, utf8_len) == 0) {
+                    // 找到映射，复制GB2312字符
+                    size_t gb2312_len = strlen(utf8_gb2312_map[i].gb2312);
+                    if (dest_pos + gb2312_len < dest_size) {
+                        memcpy(dest + dest_pos, utf8_gb2312_map[i].gb2312, gb2312_len);
+                        dest_pos += gb2312_len;
+                        src_pos += utf8_len;
+                        found = true;
+                        ESP_LOGD(TAG, "找到映射: %s -> %s", utf8_gb2312_map[i].utf8, utf8_gb2312_map[i].gb2312);
+                        break;
+                    }
                 }
             }
         }
