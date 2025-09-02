@@ -21,6 +21,9 @@
 // 按键驱动头文件
 #include "key.h"
 
+// Shell编码配置头文件
+#include "cmd_encoding.h"
+
 // 测试命令头文件
 #include "test_commands.h"
 
@@ -69,6 +72,8 @@ void app_main(void) {
     ESP_LOGE(TAG, "按键模块初始化失败: %s", esp_err_to_name(ret));
     return;
   }
+  
+  // 编码配置已集成到Shell系统中，无需单独初始化
 
   // 初始化UART驱动
   if (!uart_driver_init()) {
@@ -157,6 +162,7 @@ void app_main(void) {
   cmd_register_task("led", task_led_control, "控制LED (on/off/toggle/blink)");
   cmd_register_task("test", task_test_control, "开始自动化测试");
   cmd_register_task("testoff", task_testoff_control, "停止自动化测试");
+  // encoding命令已集成到Shell系统中
 
   // 创建UART1的Shell实例
   shell_config_t uart1_config =
@@ -202,7 +208,7 @@ void app_main(void) {
   ESP_LOGI(TAG, "SD卡状态: %s", sd_card_is_mounted() ? "已挂载" : "未挂载");
   ESP_LOGI(TAG, "TCA9535状态: %s", tca9535_handle ? "已连接" : "未连接");
   ESP_LOGI(TAG, "ADS1115状态: %s", ads1115_get_handle() ? "已连接" : "未连接");
-  ESP_LOGI(TAG, "可用命令: help, echo, version, kv, tasks, heap, led, test, testoff等");
+  ESP_LOGI(TAG, "可用命令: help, echo, version, kv, tasks, heap, led, test, testoff, encoding等");
 
 
   static uint32_t loop_count = 0;

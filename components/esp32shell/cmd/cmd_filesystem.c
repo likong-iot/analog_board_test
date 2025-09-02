@@ -1,4 +1,5 @@
 #include "cmd_filesystem.h"
+#include "cmd_encoding.h"
 #include "shell.h"
 #include "esp_log.h"
 #include <string.h>
@@ -91,7 +92,7 @@ bool build_full_path(const char *cwd, const char *params, char *full_path, size_
             strcat(full_path, "/");
             strcat(full_path, params);
         } else {
-            snprintf(response, response_size, "错误: 路径过长\r\n");
+            shell_snprintf(response, response_size, "错误: 路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return false;
         }
@@ -106,7 +107,7 @@ void task_pwd(uint32_t channel_id, const char *params) {
     if (filesystem_get_cwd(channel_id, cwd, sizeof(cwd))) {
         snprintf(response, sizeof(response), "%s\r\n", cwd);
     } else {
-        snprintf(response, sizeof(response), "错误: 无法获取当前工作目录\r\n");
+        shell_snprintf(response, sizeof(response), "错误: 无法获取当前工作目录\r\n");
     }
     
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -151,7 +152,7 @@ void task_cd(uint32_t channel_id, const char *params) {
                     strcat(new_path, "/");
                     strcat(new_path, params);
                 } else {
-                    snprintf(response, sizeof(response), "错误: 路径过长\r\n");
+                    shell_snprintf(response, sizeof(response), "错误: 路径过长\r\n");
                     cmd_output(channel_id, (uint8_t *)response, strlen(response));
                     return;
                 }
@@ -163,14 +164,14 @@ void task_cd(uint32_t channel_id, const char *params) {
     struct stat st;
     if (stat(new_path, &st) == 0 && S_ISDIR(st.st_mode)) {
         if (filesystem_set_cwd(channel_id, new_path)) {
-            snprintf(response, sizeof(response), "已切换到: %s\r\n", new_path);
+            shell_snprintf(response, sizeof(response), "已切换到: %s\r\n", new_path);
             ESP_LOGI(TAG, "工作目录切换到: %s", new_path);
         } else {
-            snprintf(response, sizeof(response), "错误: 无法设置工作目录\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 无法设置工作目录\r\n");
             ESP_LOGE(TAG, "无法设置工作目录: %s", new_path);
         }
     } else {
-        snprintf(response, sizeof(response), "错误: 目录不存在: %s\r\n", new_path);
+        shell_snprintf(response, sizeof(response), "错误: 目录不存在: %s\r\n", new_path);
     }
     
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -194,12 +195,12 @@ void task_ls(uint32_t channel_id, const char *params) {
     
     DIR *dir = opendir(target_path);
     if (dir == NULL) {
-        snprintf(response, sizeof(response), "错误: 无法打开目录: %s\r\n", target_path);
+        shell_snprintf(response, sizeof(response), "错误: 无法打开目录: %s\r\n", target_path);
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
     
-    snprintf(response, sizeof(response), "目录内容: %s\r\n", target_path);
+    shell_snprintf(response, sizeof(response), "目录内容: %s\r\n", target_path);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     
     snprintf(response, sizeof(response), "----------------------------------------\r\n");
@@ -238,7 +239,7 @@ void task_ls(uint32_t channel_id, const char *params) {
     
     snprintf(response, sizeof(response), "----------------------------------------\r\n");
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
-    snprintf(response, sizeof(response), "总计: %d个文件, %d个目录\r\n", file_count, dir_count);
+    shell_snprintf(response, sizeof(response), "总计: %d个文件, %d个目录\r\n", file_count, dir_count);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     
     closedir(dir);

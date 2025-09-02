@@ -129,9 +129,9 @@ esp_err_t led_set_all_state(led_state_t state)
         }
     }
     
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "所有LED %s", state == LED_ON ? "点亮" : "熄灭");
-    }
+    // if (ret == ESP_OK) {
+    //     ESP_LOGI(TAG, "所有LED %s", state == LED_ON ? "点亮" : "熄灭");
+    // }
     
     return ret;
 }

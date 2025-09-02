@@ -1,4 +1,5 @@
 #include "cmd_system.h"
+#include "cmd_encoding.h"
 #include "shell.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -189,7 +190,7 @@ void task_cpu(uint32_t channel_id, const char *params) {
 
 void task_reset(uint32_t channel_id, const char *params) {
     char response[256];
-    snprintf(response, sizeof(response), "系统将在3秒后重启...\r\n");
+    shell_snprintf(response, sizeof(response), "系统将在3秒后重启...\r\n");
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     
     vTaskDelay(pdMS_TO_TICKS(3000));
@@ -215,11 +216,11 @@ void task_status(uint32_t channel_id, const char *params) {
 void task_led(uint32_t channel_id, const char *params) {
     char response[256];
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), "LED控制: 请提供参数 'on' 或 'off'\r\n");
+        shell_snprintf(response, sizeof(response), "LED控制: 请提供参数 'on' 或 'off'\r\n");
     } else if (strcmp(params, "on") == 0) {
-        snprintf(response, sizeof(response), "LED已开启\r\n");
+        shell_snprintf(response, sizeof(response), "LED已开启\r\n");
     } else if (strcmp(params, "off") == 0) {
-        snprintf(response, sizeof(response), "LED已关闭\r\n");
+        shell_snprintf(response, sizeof(response), "LED已关闭\r\n");
     } else {
         snprintf(response, sizeof(response), "错误: 参数 '%s' 无效，应为 'on' 或 'off'\r\n", params);
     }

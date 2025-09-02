@@ -1,4 +1,5 @@
 #include "cmd_basic.h"
+#include "cmd_encoding.h"
 #include "shell.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -160,7 +161,10 @@ static const cmd_help_info_t cmd_help_table[] = {
      "test"},
      
     {"testoff", "testoff", "停止自动化测试",
-     "testoff"}
+     "testoff"},
+     
+    {"encoding", "encoding [status|utf8|gb2312]", "配置字符编码格式",
+     "encoding"}
 };
 
 static const size_t cmd_help_table_size = sizeof(cmd_help_table) / sizeof(cmd_help_table[0]);
@@ -191,7 +195,7 @@ void task_help(uint32_t channel_id, const char *params) {
             }
         }
         
-        snprintf(response, sizeof(response), "\r\n【系统命令】\r\n");
+        shell_snprintf(response, sizeof(response), "\r\n【系统命令】\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
         // 显示系统命令  
@@ -203,7 +207,7 @@ void task_help(uint32_t channel_id, const char *params) {
             }
         }
         
-        snprintf(response, sizeof(response), "\r\n【FreeRTOS命令】\r\n");
+        shell_snprintf(response, sizeof(response), "\r\n【FreeRTOS命令】\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
         // 显示FreeRTOS命令
@@ -215,7 +219,7 @@ void task_help(uint32_t channel_id, const char *params) {
             }
         }
         
-        snprintf(response, sizeof(response), "\r\n【文件系统命令】\r\n");
+        shell_snprintf(response, sizeof(response), "\r\n【文件系统命令】\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
         // 显示文件系统命令
@@ -227,7 +231,7 @@ void task_help(uint32_t channel_id, const char *params) {
             }
         }
         
-        snprintf(response, sizeof(response), "\r\n【宏命令】\r\n");
+        shell_snprintf(response, sizeof(response), "\r\n【宏命令】\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
         // 显示宏命令
@@ -239,19 +243,19 @@ void task_help(uint32_t channel_id, const char *params) {
             }
         }
         
-        snprintf(response, sizeof(response), "\r\n【测试命令】\r\n");
+        shell_snprintf(response, sizeof(response), "\r\n【测试命令】\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
         // 显示测试命令
         for (size_t i = 0; i < cmd_help_table_size; i++) {
-            if (i >= 34) { // 测试命令 (test, testoff)
+            if (i >= 34) { // 测试命令 (test, testoff, encoding)
                 snprintf(response, sizeof(response), "  %-12s - %s\r\n", 
                         cmd_help_table[i].name, cmd_help_table[i].description);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
         }
         
-        snprintf(response, sizeof(response), 
+        shell_snprintf(response, sizeof(response), 
                 "\r\n==================\r\n"
                 "总共 %zu 个命令可用\r\n"
                 "提示: 使用 'help <命令名>' 查看命令的详细用法和示例\r\n", 
@@ -324,7 +328,7 @@ void task_echo(uint32_t channel_id, const char *params) {
     if (strlen(params) > 0) {
         snprintf(response, sizeof(response), "Echo: %s\r\n", params);
     } else {
-        snprintf(response, sizeof(response), "Echo: 无参数\r\n");
+        shell_snprintf(response, sizeof(response), "Echo: 无参数\r\n");
     }
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
 }
@@ -408,7 +412,7 @@ void task_kv(uint32_t channel_id, const char *params) {
     }
     
     if (sscanf(params, "%31s %63s %31s", cmd, key, value_str) < 2) {
-        snprintf(response, sizeof(response), "错误: 参数不足\r\n");
+        shell_snprintf(response, sizeof(response), "错误: 参数不足\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -416,7 +420,7 @@ void task_kv(uint32_t channel_id, const char *params) {
     // 获取当前shell实例的键值存储
     shell_instance_t *instance = shell_get_instance_by_channel(channel_id);
     if (instance == NULL) {
-        snprintf(response, sizeof(response), "错误: 未找到shell实例\r\n");
+        shell_snprintf(response, sizeof(response), "错误: 未找到shell实例\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -425,30 +429,30 @@ void task_kv(uint32_t channel_id, const char *params) {
         if (sscanf(params, "%31s %63s %31s", cmd, key, value_str) == 3) {
             uint32_t value = atoi(value_str);
             if (kv_store_set(&instance->kv_store, key, value)) {
-                snprintf(response, sizeof(response), "设置成功: %s = %lu\r\n", key, (unsigned long)value);
+                shell_snprintf(response, sizeof(response), "设置成功: %s = %lu\r\n", key, (unsigned long)value);
             } else {
-                snprintf(response, sizeof(response), "设置失败\r\n");
+                shell_snprintf(response, sizeof(response), "设置失败\r\n");
             }
         } else {
-            snprintf(response, sizeof(response), "错误: set命令需要键和值\r\n");
+            shell_snprintf(response, sizeof(response), "错误: set命令需要键和值\r\n");
         }
     } else if (strcmp(cmd, "get") == 0) {
         uint32_t value;
         if (kv_store_get(&instance->kv_store, key, &value)) {
             snprintf(response, sizeof(response), "%s = %lu\r\n", key, (unsigned long)value);
         } else {
-            snprintf(response, sizeof(response), "键 '%s' 不存在\r\n", key);
+            shell_snprintf(response, sizeof(response), "键 '%s' 不存在\r\n", key);
         }
     } else if (strcmp(cmd, "del") == 0) {
         if (kv_store_delete(&instance->kv_store, key)) {
-            snprintf(response, sizeof(response), "删除成功: %s\r\n", key);
+            shell_snprintf(response, sizeof(response), "删除成功: %s\r\n", key);
         } else {
-            snprintf(response, sizeof(response), "键 '%s' 不存在\r\n", key);
+            shell_snprintf(response, sizeof(response), "键 '%s' 不存在\r\n", key);
         }
     } else if (strcmp(cmd, "list") == 0) {
         size_t count = kv_store_count(&instance->kv_store);
         if (count > 0) {
-            snprintf(response, sizeof(response), "=== 键值对列表 (%zu个) ===\r\n", count);
+            shell_snprintf(response, sizeof(response), "=== 键值对列表 (%zu个) ===\r\n", count);
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             
             char list_buffer[1024];
@@ -457,16 +461,16 @@ void task_kv(uint32_t channel_id, const char *params) {
             
             snprintf(response, sizeof(response), "==================\r\n");
         } else {
-            snprintf(response, sizeof(response), "键值存储为空\r\n");
+            shell_snprintf(response, sizeof(response), "键值存储为空\r\n");
         }
     } else if (strcmp(cmd, "clear") == 0) {
         kv_store_clear(&instance->kv_store);
-        snprintf(response, sizeof(response), "键值存储已清空\r\n");
+        shell_snprintf(response, sizeof(response), "键值存储已清空\r\n");
     } else if (strcmp(cmd, "count") == 0) {
         size_t count = kv_store_count(&instance->kv_store);
-        snprintf(response, sizeof(response), "键值对数量: %zu\r\n", count);
+        shell_snprintf(response, sizeof(response), "键值对数量: %zu\r\n", count);
     } else {
-        snprintf(response, sizeof(response), "未知命令: %s\r\n", cmd);
+        shell_snprintf(response, sizeof(response), "未知命令: %s\r\n", cmd);
     }
     
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -478,7 +482,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
     // 获取当前shell实例
     shell_instance_t *instance = shell_get_instance_by_channel(channel_id);
     if (instance == NULL) {
-        snprintf(response, sizeof(response), "错误: 未找到shell实例\r\n");
+        shell_snprintf(response, sizeof(response), "错误: 未找到shell实例\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -506,7 +510,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
         
         // 显示宏缓冲区内容
         if (macro_count > 0 || is_recording) {
-            snprintf(response, sizeof(response), "=== 宏命令列表 ===\r\n");
+            shell_snprintf(response, sizeof(response), "=== 宏命令列表 ===\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             
             char list_buffer[1024];
@@ -516,13 +520,13 @@ void task_buffer(uint32_t channel_id, const char *params) {
             snprintf(response, sizeof(response), "==================\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
         } else {
-            snprintf(response, sizeof(response), "宏缓冲区为空\r\n");
+            shell_snprintf(response, sizeof(response), "宏缓冲区为空\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
         }
     } else if (strcmp(params, "clear") == 0) {
         // 清空宏缓冲区
         macro_buffer_clear(&instance->macro_buffer);
-        snprintf(response, sizeof(response), "宏缓冲区已清空\r\n");
+        shell_snprintf(response, sizeof(response), "宏缓冲区已清空\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
     } else if (strcmp(params, "list") == 0) {
         // 显示所有宏的详细信息
@@ -530,12 +534,12 @@ void task_buffer(uint32_t channel_id, const char *params) {
         bool is_recording = macro_buffer_is_recording(&instance->macro_buffer);
         
         if (macro_count == 0 && !is_recording) {
-            snprintf(response, sizeof(response), "没有保存的宏\r\n");
+            shell_snprintf(response, sizeof(response), "没有保存的宏\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
         
-        snprintf(response, sizeof(response), "=== 所有宏详细信息 ===\r\n");
+        shell_snprintf(response, sizeof(response), "=== 所有宏详细信息 ===\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
         if (is_recording) {
@@ -565,16 +569,16 @@ void task_buffer(uint32_t channel_id, const char *params) {
         if (strlen(macro_name) == 0) {
             // 执行第一个宏
             if (macro_buffer_execute(&instance->macro_buffer, channel_id)) {
-                snprintf(response, sizeof(response), "宏执行完成\r\n");
+                shell_snprintf(response, sizeof(response), "宏执行完成\r\n");
             } else {
-                snprintf(response, sizeof(response), "错误: 没有可执行的宏\r\n");
+                shell_snprintf(response, sizeof(response), "错误: 没有可执行的宏\r\n");
             }
         } else {
             // 按名称执行宏
             if (macro_buffer_execute_by_name(&instance->macro_buffer, macro_name, channel_id)) {
-                snprintf(response, sizeof(response), "宏 '%s' 执行完成\r\n", macro_name);
+                shell_snprintf(response, sizeof(response), "宏 '%s' 执行完成\r\n", macro_name);
             } else {
-                snprintf(response, sizeof(response), "错误: 宏 '%s' 不存在\r\n", macro_name);
+                shell_snprintf(response, sizeof(response), "错误: 宏 '%s' 不存在\r\n", macro_name);
             }
         }
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -584,12 +588,12 @@ void task_buffer(uint32_t channel_id, const char *params) {
         while (*macro_name == ' ') macro_name++; // 跳过空格
         
         if (strlen(macro_name) == 0) {
-            snprintf(response, sizeof(response), "用法: buffer del <宏名称>\r\n");
+            shell_snprintf(response, sizeof(response), "用法: buffer del <宏名称>\r\n");
         } else {
             if (macro_buffer_delete(&instance->macro_buffer, macro_name)) {
-                snprintf(response, sizeof(response), "宏 '%s' 已删除\r\n", macro_name);
+                shell_snprintf(response, sizeof(response), "宏 '%s' 已删除\r\n", macro_name);
             } else {
-                snprintf(response, sizeof(response), "错误: 宏 '%s' 不存在\r\n", macro_name);
+                shell_snprintf(response, sizeof(response), "错误: 宏 '%s' 不存在\r\n", macro_name);
             }
         }
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -599,7 +603,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
         while (*macro_name == ' ') macro_name++; // 跳过空格
         
         if (strlen(macro_name) == 0) {
-            snprintf(response, sizeof(response), "用法: buffer show <宏名称>\r\n");
+            shell_snprintf(response, sizeof(response), "用法: buffer show <宏名称>\r\n");
         } else {
             // 检查是否是正在录制的宏
             if (macro_buffer_is_recording(&instance->macro_buffer) && 
@@ -616,7 +620,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
                 if (strlen(list_buffer) > 0) {
                     cmd_output(channel_id, (uint8_t *)list_buffer, strlen(list_buffer));
                 } else {
-                    snprintf(response, sizeof(response), "(暂无命令)\r\n");
+                    shell_snprintf(response, sizeof(response), "(暂无命令)\r\n");
                     cmd_output(channel_id, (uint8_t *)response, strlen(response));
                 }
                 
@@ -641,7 +645,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
                 snprintf(response, sizeof(response), "==================\r\n");
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             } else {
-                snprintf(response, sizeof(response), "错误: 宏 '%s' 不存在\r\n", macro_name);
+                shell_snprintf(response, sizeof(response), "错误: 宏 '%s' 不存在\r\n", macro_name);
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
         }

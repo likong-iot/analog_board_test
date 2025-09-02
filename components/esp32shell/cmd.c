@@ -4,6 +4,7 @@
 #include "cmd/cmd_system.h"
 #include "cmd/cmd_freertos.h"
 #include "cmd/cmd_filesystem.h"
+#include "cmd/cmd_encoding.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -54,6 +55,9 @@ void cmd_init(void) {
     cmd_register_task("touch", task_touch, "创建空文件");
     cmd_register_task("du", task_du, "显示目录使用情况");
     cmd_register_task("find", task_find, "查找文件");
+    
+    // 注册编码命令
+    cmd_register_task("encoding", task_shell_encoding, "配置字符编码 (UTF-8/GB2312)");
 
-    ESP_LOGI(TAG, "命令系统初始化完成，已注册 %zu 个任务", (size_t)30);
+    ESP_LOGI(TAG, "命令系统初始化完成，已注册 %zu 个任务", (size_t)31);
 }

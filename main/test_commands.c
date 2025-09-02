@@ -9,6 +9,7 @@
 #include "tca9535.h"
 #include "sd.h"
 #include "key.h"
+#include "cmd_encoding.h"
 #include "shell.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -43,7 +44,7 @@ static void key_event_handler(key_event_t event, uint32_t timestamp_ms)
     const char *event_str = (event == KEY_EVENT_PRESSED) ? "按下" : "松开";
     
     // 在Shell中打印按键事件
-    snprintf(output, sizeof(output), "\r\n>>> 按键%s (时间戳: %lu ms) <<<\r\n", event_str, timestamp_ms);
+    shell_snprintf(output, sizeof(output), "\r\n>>> 按键%s (时间戳: %lu ms) <<<\r\n", event_str, timestamp_ms);
     cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
     
     // 记录到日志文件
@@ -154,19 +155,19 @@ static void test_task_main(void *arg)
                 uint8_t display_io = (g_test_status.current_io == 0) ? 8 : g_test_status.current_io; // 显示1-8
                 uint8_t display_led = (g_test_status.current_led == 1) ? 4 : g_test_status.current_led - 1; // 显示实际点亮的LED
                 
-                snprintf(output, sizeof(output), "\r\n=== 测试循环 %lu ===\r\n", g_test_status.cycle_count);
-                cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
+                            shell_snprintf(output, sizeof(output), "\r\n=== 测试循环 %lu ===\r\n", g_test_status.cycle_count);
+            cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
+
+            shell_snprintf(output, sizeof(output), "当前拉高IO: %d | 当前点亮LED: %d\r\n", display_io, display_led);
+            cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
                 
-                snprintf(output, sizeof(output), "当前拉高IO: %d | 当前点亮LED: %d\r\n", display_io, display_led);
-                cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
-                
-                // 打印ADS1115数据到Shell终端
+                                // 打印ADS1115数据到Shell终端
                 if (ads1115_get_handle() != NULL) {
-                    snprintf(output, sizeof(output), "ADS1115数据: ");
+                    shell_snprintf(output, sizeof(output), "ADS1115数据: ");
                     for (uint8_t ch = 0; ch < ADS1115_CHANNEL_COUNT; ch++) {
                         char ch_data[64];
                         if (channel_data[ch].status == ESP_OK) {
-                            snprintf(ch_data, sizeof(ch_data), "CH%d:%.4fV,%.2fmA ", 
+                            snprintf(ch_data, sizeof(ch_data), "CH%d:%.4fV,%.2fmA ",
                                    ch, channel_data[ch].voltage_v, channel_data[ch].current_ma);
                         } else {
                             snprintf(ch_data, sizeof(ch_data), "CH%d:ERROR ", ch);
@@ -176,7 +177,7 @@ static void test_task_main(void *arg)
                     strncat(output, "\r\n", sizeof(output) - strlen(output) - 1);
                     cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
                 } else {
-                    snprintf(output, sizeof(output), "ADS1115: 未连接\r\n");
+                    shell_snprintf(output, sizeof(output), "ADS1115: 未连接\r\n");
                     cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
                 }
                 
@@ -232,25 +233,25 @@ void task_test_control(uint32_t channel_id, const char *params)
     // test命令直接开始测试，无需参数
     if (strlen(params) == 0) {
         if (g_test_status.running) {
-            snprintf(response, sizeof(response), "测试已在运行中，使用 'testoff' 停止测试\r\n");
+            shell_snprintf(response, sizeof(response), "测试已在运行中，使用 'testoff' 停止测试\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
         
         // 检查必要的组件是否可用
         if (!sd_card_is_mounted()) {
-            snprintf(response, sizeof(response), "错误: SD卡未挂载，无法记录日志\r\n");
+            shell_snprintf(response, sizeof(response), "错误: SD卡未挂载，无法记录日志\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
         
         if (ads1115_get_handle() == NULL) {
-            snprintf(response, sizeof(response), "警告: ADS1115未连接，将跳过数据记录\r\n");
+            shell_snprintf(response, sizeof(response), "警告: ADS1115未连接，将跳过数据记录\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
         }
         
         if (get_tca9535_handle() == NULL) {
-            snprintf(response, sizeof(response), "警告: TCA9535未连接，将跳过IO控制\r\n");
+            shell_snprintf(response, sizeof(response), "警告: TCA9535未连接，将跳过IO控制\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
         }
         
@@ -288,7 +289,7 @@ void task_test_control(uint32_t channel_id, const char *params)
         // 创建测试任务
         BaseType_t ret = xTaskCreate(test_task_main, "test_task", 4096, NULL, 5, &test_task_handle);
         if (ret == pdPASS) {
-            snprintf(response, sizeof(response), 
+            shell_snprintf(response, sizeof(response), 
                     "=== 自动化测试启动 ===\r\n"
                     "功能:\r\n"
                     "- ADS1115数据记录到SD卡\r\n"
@@ -304,11 +305,11 @@ void task_test_control(uint32_t channel_id, const char *params)
             ESP_LOGI(TAG, "自动化测试启动成功 - 终端将持续打印数据");
         } else {
             g_test_status.running = false;
-            snprintf(response, sizeof(response), "错误: 无法创建测试任务\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 无法创建测试任务\r\n");
             ESP_LOGE(TAG, "创建测试任务失败");
         }
     } else {
-        snprintf(response, sizeof(response), 
+        shell_snprintf(response, sizeof(response), 
                 "test命令用法:\r\n"
                 "test      - 开始自动化测试\r\n"
                 "testoff   - 停止自动化测试\r\n"
@@ -330,7 +331,7 @@ void task_testoff_control(uint32_t channel_id, const char *params)
     char response[512];
     
     if (!g_test_status.running) {
-        snprintf(response, sizeof(response), "测试未在运行\r\n");
+        shell_snprintf(response, sizeof(response), "测试未在运行\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -362,7 +363,7 @@ void task_testoff_control(uint32_t channel_id, const char *params)
         }
     }
     
-    snprintf(response, sizeof(response), 
+    shell_snprintf(response, sizeof(response), 
             "=== 测试已停止 ===\r\n"
             "总循环次数: %lu\r\n"
             "测试时长: %.1f秒\r\n"

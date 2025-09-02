@@ -1,5 +1,6 @@
 #include "shell.h"
 #include "cmd.h"
+#include "cmd/cmd_encoding.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -23,6 +24,9 @@ static size_t shell_instance_count = 0;
 static SemaphoreHandle_t shell_instances_mutex = NULL;
 
 void cmd_system_init(void) {
+  // 初始化Shell编码配置
+  shell_encoding_init();
+  
   task_list_mutex = xSemaphoreCreateMutex();
   if (task_list_mutex == NULL) {
     ESP_LOGE(TAG, "创建任务列表互斥锁失败");

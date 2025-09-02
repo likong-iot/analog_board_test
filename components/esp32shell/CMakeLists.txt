@@ -6,6 +6,7 @@ idf_component_register(
         "cmd/cmd_system.c"
         "cmd/cmd_freertos.c"
         "cmd/cmd_filesystem.c"
+        "cmd/cmd_encoding.c"
     INCLUDE_DIRS 
         "include" 
         "cmd"
@@ -13,4 +14,5 @@ idf_component_register(
         driver 
         esp_system 
         freertos
+        nvs_flash
 ) 

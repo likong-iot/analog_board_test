@@ -5,6 +5,7 @@
 
 #include "led_commands.h"
 #include "led.h"
+#include "cmd_encoding.h"
 #include "shell.h"
 #include "esp_log.h"
 #include <string.h>
@@ -50,14 +51,14 @@ void task_led_control(uint32_t channel_id, const char *params)
     
     if (strcmp(cmd, "status") == 0) {
         // 显示所有LED状态
-        snprintf(response, sizeof(response), "=== LED状态 ===\r\n");
+        shell_snprintf(response, sizeof(response), "=== LED状态 ===\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
         for (led_num_t led = LED_1; led <= LED_4; led++) {
             led_state_t state;
             if (led_get_state(led, &state) == ESP_OK) {
                 int gpio_num = led_get_gpio_num(led);
-                snprintf(response, sizeof(response), "LED%d (GPIO%d): %s\r\n", 
+                shell_snprintf(response, sizeof(response), "LED%d (GPIO%d): %s\r\n", 
                          led, gpio_num, state == LED_ON ? "点亮" : "熄灭");
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             }
@@ -68,7 +69,7 @@ void task_led_control(uint32_t channel_id, const char *params)
     }
     
     if (parsed < 2) {
-        snprintf(response, sizeof(response), "错误: 参数不足\r\n");
+        shell_snprintf(response, sizeof(response), "错误: 参数不足\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -85,7 +86,7 @@ void task_led_control(uint32_t channel_id, const char *params)
             led_num = (led_num_t)led_number;
         } else {
             ESP_LOGE(TAG, "无效的LED编号: %s", cmd);
-            snprintf(response, sizeof(response), "错误: 无效的LED编号 '%s'，应为1-4或all\r\n", cmd);
+            shell_snprintf(response, sizeof(response), "错误: 无效的LED编号 '%s'，应为1-4或all\r\n", cmd);
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -97,16 +98,16 @@ void task_led_control(uint32_t channel_id, const char *params)
         if (is_all) {
             ret = led_set_all_state(LED_ON);
             if (ret == ESP_OK) {
-                snprintf(response, sizeof(response), "所有LED已点亮\r\n");
+                shell_snprintf(response, sizeof(response), "所有LED已点亮\r\n");
             } else {
-                snprintf(response, sizeof(response), "错误: 无法点亮所有LED\r\n");
+                shell_snprintf(response, sizeof(response), "错误: 无法点亮所有LED\r\n");
             }
         } else {
             ret = led_set_state(led_num, LED_ON);
             if (ret == ESP_OK) {
-                snprintf(response, sizeof(response), "LED%d已点亮\r\n", led_num);
+                shell_snprintf(response, sizeof(response), "LED%d已点亮\r\n", led_num);
             } else {
-                snprintf(response, sizeof(response), "错误: 无法点亮LED%d\r\n", led_num);
+                shell_snprintf(response, sizeof(response), "错误: 无法点亮LED%d\r\n", led_num);
             }
         }
     } else if (strcmp(state_str, "off") == 0) {
@@ -114,16 +115,16 @@ void task_led_control(uint32_t channel_id, const char *params)
         if (is_all) {
             ret = led_set_all_state(LED_OFF);
             if (ret == ESP_OK) {
-                snprintf(response, sizeof(response), "所有LED已熄灭\r\n");
+                shell_snprintf(response, sizeof(response), "所有LED已熄灭\r\n");
             } else {
-                snprintf(response, sizeof(response), "错误: 无法熄灭所有LED\r\n");
+                shell_snprintf(response, sizeof(response), "错误: 无法熄灭所有LED\r\n");
             }
         } else {
             ret = led_set_state(led_num, LED_OFF);
             if (ret == ESP_OK) {
-                snprintf(response, sizeof(response), "LED%d已熄灭\r\n", led_num);
+                shell_snprintf(response, sizeof(response), "LED%d已熄灭\r\n", led_num);
             } else {
-                snprintf(response, sizeof(response), "错误: 无法熄灭LED%d\r\n", led_num);
+                shell_snprintf(response, sizeof(response), "错误: 无法熄灭LED%d\r\n", led_num);
             }
         }
     } else if (strcmp(state_str, "toggle") == 0) {
@@ -131,24 +132,24 @@ void task_led_control(uint32_t channel_id, const char *params)
         if (is_all) {
             ret = led_toggle(LED_ALL);
             if (ret == ESP_OK) {
-                snprintf(response, sizeof(response), "所有LED状态已切换\r\n");
+                shell_snprintf(response, sizeof(response), "所有LED状态已切换\r\n");
             } else {
-                snprintf(response, sizeof(response), "错误: 无法切换所有LED状态\r\n");
+                shell_snprintf(response, sizeof(response), "错误: 无法切换所有LED状态\r\n");
             }
         } else {
             ret = led_toggle(led_num);
             if (ret == ESP_OK) {
                 led_state_t current_state;
                 led_get_state(led_num, &current_state);
-                snprintf(response, sizeof(response), "LED%d已切换为%s\r\n", 
+                shell_snprintf(response, sizeof(response), "LED%d已切换为%s\r\n", 
                          led_num, current_state == LED_ON ? "点亮" : "熄灭");
             } else {
-                snprintf(response, sizeof(response), "错误: 无法切换LED%d状态\r\n", led_num);
+                shell_snprintf(response, sizeof(response), "错误: 无法切换LED%d状态\r\n", led_num);
             }
         }
     } else if (strcmp(state_str, "blink") == 0) {
         if (parsed < 3) {
-            snprintf(response, sizeof(response), "错误: blink命令需要指定闪烁次数\r\n");
+            shell_snprintf(response, sizeof(response), "错误: blink命令需要指定闪烁次数\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -157,33 +158,33 @@ void task_led_control(uint32_t channel_id, const char *params)
         uint32_t interval_ms = (parsed >= 4) ? (uint32_t)atoi(interval_str) : 500; // 默认500ms间隔
         
         if (times == 0) {
-            snprintf(response, sizeof(response), "错误: 闪烁次数必须大于0\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 闪烁次数必须大于0\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
         
         esp_err_t ret;
         if (is_all) {
-            snprintf(response, sizeof(response), "所有LED闪烁%d次，间隔%lums...\r\n", times, interval_ms);
+            shell_snprintf(response, sizeof(response), "所有LED闪烁%d次，间隔%lums...\r\n", times, interval_ms);
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             ret = led_blink(LED_ALL, times, interval_ms);
             if (ret == ESP_OK) {
-                snprintf(response, sizeof(response), "所有LED闪烁完成\r\n");
+                shell_snprintf(response, sizeof(response), "所有LED闪烁完成\r\n");
             } else {
-                snprintf(response, sizeof(response), "错误: LED闪烁失败\r\n");
+                shell_snprintf(response, sizeof(response), "错误: LED闪烁失败\r\n");
             }
         } else {
-            snprintf(response, sizeof(response), "LED%d闪烁%d次，间隔%lums...\r\n", led_num, times, interval_ms);
+            shell_snprintf(response, sizeof(response), "LED%d闪烁%d次，间隔%lums...\r\n", led_num, times, interval_ms);
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             ret = led_blink(led_num, times, interval_ms);
             if (ret == ESP_OK) {
-                snprintf(response, sizeof(response), "LED%d闪烁完成\r\n", led_num);
+                shell_snprintf(response, sizeof(response), "LED%d闪烁完成\r\n", led_num);
             } else {
-                snprintf(response, sizeof(response), "错误: LED%d闪烁失败\r\n", led_num);
+                shell_snprintf(response, sizeof(response), "错误: LED%d闪烁失败\r\n", led_num);
             }
         }
     } else {
-        snprintf(response, sizeof(response), "错误: 未知命令 '%s'，支持: on, off, toggle, blink\r\n", state_str);
+        shell_snprintf(response, sizeof(response), "错误: 未知命令 '%s'，支持: on, off, toggle, blink\r\n", state_str);
     }
     
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
