@@ -44,11 +44,21 @@ static const char* encoding_descriptions[] = {
     "ASCII 英文编码"
 };
 
-// UTF-8到GB2312的映射表（常用字符）
+// 2字节UTF-8字符映射表
 static const struct {
     const char *utf8;
     const char *gb2312;
-} utf8_gb2312_map[] = {
+} utf8_2byte_map[] = {
+    {"\xC2\xA0", "\xA1\xA1"}, // 不间断空格
+    {"\xC2\xA9", "\xA1\xA2"}, // 版权符号
+    {"\xC2\xAE", "\xA1\xA3"}, // 注册商标
+};
+
+// 3字节UTF-8字符映射表（主要的中文字符）
+static const struct {
+    const char *utf8;
+    const char *gb2312;
+} utf8_3byte_map[] = {
     // 优先处理经常出现警告的字符 - 使用UTF-8字节序列确保匹配
     {"\xE6\x8B\x9F", "\xC4\xE3"}, {"\xE6\x9D\xBF", "\xB0\xE5"}, {"\xE4\xBC\x9A", "\xBB\xE1"}, 
     {"\xE8\xAF\x9D", "\xBB\xB0"}, {"\xE7\xBB\x93", "\xBD\xE1"}, {"\xE6\x9D\x9F", "\xCA\xF8"},
@@ -117,7 +127,20 @@ static const struct {
     {"堆", "\xB6\xD1"}, {"最", "\xD7\xEE"}, {"小", "\xD0\xA1"}
 };
 
-static const size_t utf8_gb2312_map_size = sizeof(utf8_gb2312_map) / sizeof(utf8_gb2312_map[0]);
+// 4字节UTF-8字符映射表（辅助平面字符，如emoji）
+static const struct {
+    const char *utf8;
+    const char *gb2312;
+} utf8_4byte_map[] = {
+    {"\xF0\x9F\x98\x80", "??"}, // 笑脸emoji -> ??
+    {"\xF0\x9F\x98\x81", "??"}, // 笑脸emoji -> ??
+};
+
+static const size_t utf8_2byte_map_size = sizeof(utf8_2byte_map) / sizeof(utf8_2byte_map[0]);
+static const size_t utf8_3byte_map_size = sizeof(utf8_3byte_map) / sizeof(utf8_3byte_map[0]);
+static const size_t utf8_4byte_map_size = sizeof(utf8_4byte_map) / sizeof(utf8_4byte_map[0]);
+
+
 
 /**
  * @brief 从NVS加载编码配置
@@ -196,26 +219,64 @@ static size_t utf8_to_gb2312(const char *utf8_str, char *gb2312_str, size_t gb23
     while (*p && gb2312_len < gb2312_size - 1) {
         // 检查是否是UTF-8多字节字符
         if ((*p & 0x80) == 0) {
-            // ASCII字符，直接复制
+            // 1字节UTF-8（ASCII字符），直接复制
             gb2312_str[gb2312_len++] = *p++;
         } else if ((*p & 0xE0) == 0xC0) {
-            // UTF-8双字节字符
+            // 2字节UTF-8字符
             if (*(p + 1) && (*(p + 1) & 0xC0) == 0x80) {
-                // 直接比较UTF-8字节值
+                // 构造2字节UTF-8值
                 uint16_t utf8_bytes = ((uint16_t)(unsigned char)p[0] << 8) | (uint16_t)(unsigned char)p[1];
                 
-                // 查找映射表
+                // 在2字节映射表中查找
                 bool found = false;
-                for (size_t i = 0; i < utf8_gb2312_map_size; i++) {
-                    const char *map_utf8 = utf8_gb2312_map[i].utf8;
-                    if (strlen(map_utf8) == 2) {
-                        uint16_t map_bytes = ((uint16_t)(unsigned char)map_utf8[0] << 8) | (uint16_t)(unsigned char)map_utf8[1];
+                for (size_t i = 0; i < utf8_2byte_map_size; i++) {
+                    const char *map_utf8 = utf8_2byte_map[i].utf8;
+                    uint16_t map_bytes = ((uint16_t)(unsigned char)map_utf8[0] << 8) | (uint16_t)(unsigned char)map_utf8[1];
+                    if (utf8_bytes == map_bytes) {
+                        const char *gb = utf8_2byte_map[i].gb2312;
+                        if (gb2312_len + 2 <= gb2312_size - 1) {
+                            gb2312_str[gb2312_len++] = gb[0];
+                            gb2312_str[gb2312_len++] = gb[1];
+                            p += 2;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!found) {
+                    // 没有找到映射，使用问号替代
+                    gb2312_str[gb2312_len++] = '?';
+                    p += 2;
+                }
+            } else {
+                // 无效的UTF-8序列，跳过
+                p++;
+            }
+        } else if ((*p & 0xF0) == 0xE0) {
+            // 3字节UTF-8字符
+            if (*(p + 1) && (*(p + 1) & 0xC0) == 0x80 && 
+                *(p + 2) && (*(p + 2) & 0xC0) == 0x80) {
+                
+                // 构造3字节UTF-8值
+                uint32_t utf8_bytes = ((uint32_t)(unsigned char)p[0] << 16) | 
+                                     ((uint32_t)(unsigned char)p[1] << 8) | 
+                                     (uint32_t)(unsigned char)p[2];
+                
+                // 在3字节映射表中查找
+                bool found = false;
+                for (size_t i = 0; i < utf8_3byte_map_size; i++) {
+                    const char *map_utf8 = utf8_3byte_map[i].utf8;
+                    if (strlen(map_utf8) == 3) {
+                        uint32_t map_bytes = ((uint32_t)(unsigned char)map_utf8[0] << 16) | 
+                                            ((uint32_t)(unsigned char)map_utf8[1] << 8) | 
+                                            (uint32_t)(unsigned char)map_utf8[2];
                         if (utf8_bytes == map_bytes) {
-                            const char *gb = utf8_gb2312_map[i].gb2312;
+                            const char *gb = utf8_3byte_map[i].gb2312;
                             if (gb2312_len + 2 <= gb2312_size - 1) {
                                 gb2312_str[gb2312_len++] = gb[0];
                                 gb2312_str[gb2312_len++] = gb[1];
-                                p += 2; // 跳过UTF-8双字节
+                                p += 3;
                                 found = true;
                                 break;
                             }
@@ -226,95 +287,44 @@ static size_t utf8_to_gb2312(const char *utf8_str, char *gb2312_str, size_t gb23
                 if (!found) {
                     // 没有找到映射，使用问号替代
                     gb2312_str[gb2312_len++] = '?';
-                    p += 2; // 跳过UTF-8双字节
-                }
-            } else {
-                // 无效的UTF-8序列，跳过
-                p++;
-            }
-        } else if ((*p & 0xF0) == 0xE0) {
-            // UTF-8三字节字符
-            if (*(p + 1) && (*(p + 1) & 0xC0) == 0x80 && 
-                *(p + 2) && (*(p + 2) & 0xC0) == 0x80) {
-                
-                // 特殊处理经常出现警告的字符
-                bool found = false;
-                if (gb2312_len + 2 <= gb2312_size - 1) {
-                    if ((unsigned char)p[0] == 0xE6 && (unsigned char)p[1] == 0x8B && (unsigned char)p[2] == 0x9F) {
-                        // 拟
-                        gb2312_str[gb2312_len++] = 0xC4;
-                        gb2312_str[gb2312_len++] = 0xE3;
-                        p += 3;
-                        found = true;
-                    } else if ((unsigned char)p[0] == 0xE6 && (unsigned char)p[1] == 0x9D && (unsigned char)p[2] == 0xBF) {
-                        // 板
-                        gb2312_str[gb2312_len++] = 0xB0;
-                        gb2312_str[gb2312_len++] = 0xE5;
-                        p += 3;
-                        found = true;
-                    } else if ((unsigned char)p[0] == 0xE4 && (unsigned char)p[1] == 0xBC && (unsigned char)p[2] == 0x9A) {
-                        // 会
-                        gb2312_str[gb2312_len++] = 0xBB;
-                        gb2312_str[gb2312_len++] = 0xE1;
-                        p += 3;
-                        found = true;
-                    } else if ((unsigned char)p[0] == 0xE8 && (unsigned char)p[1] == 0xAF && (unsigned char)p[2] == 0x9D) {
-                        // 话
-                        gb2312_str[gb2312_len++] = 0xBB;
-                        gb2312_str[gb2312_len++] = 0xB0;
-                        p += 3;
-                        found = true;
-                    } else if ((unsigned char)p[0] == 0xE7 && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0x93) {
-                        // 结
-                        gb2312_str[gb2312_len++] = 0xBD;
-                        gb2312_str[gb2312_len++] = 0xE1;
-                        p += 3;
-                        found = true;
-                    } else if ((unsigned char)p[0] == 0xE6 && (unsigned char)p[1] == 0x9D && (unsigned char)p[2] == 0x9F) {
-                        // 束
-                        gb2312_str[gb2312_len++] = 0xCA;
-                        gb2312_str[gb2312_len++] = 0xF8;
-                        p += 3;
-                        found = true;
-                    }
-                }
-                
-                // 如果特殊处理没找到，再查找映射表
-                if (!found) {
-                    // 直接比较UTF-8字节值
-                    uint32_t utf8_bytes = ((uint32_t)(unsigned char)p[0] << 16) | 
-                                         ((uint32_t)(unsigned char)p[1] << 8) | 
-                                         (uint32_t)(unsigned char)p[2];
-                    
-                    // 查找映射表
-                    for (size_t i = 0; i < utf8_gb2312_map_size; i++) {
-                        const char *map_utf8 = utf8_gb2312_map[i].utf8;
-                        if (strlen(map_utf8) == 3) {
-                            uint32_t map_bytes = ((uint32_t)(unsigned char)map_utf8[0] << 16) | 
-                                                ((uint32_t)(unsigned char)map_utf8[1] << 8) | 
-                                                (uint32_t)(unsigned char)map_utf8[2];
-                            if (utf8_bytes == map_bytes) {
-                                const char *gb = utf8_gb2312_map[i].gb2312;
-                                if (gb2312_len + 2 <= gb2312_size - 1) {
-                                    gb2312_str[gb2312_len++] = gb[0];
-                                    gb2312_str[gb2312_len++] = gb[1];
-                                    p += 3; // 跳过UTF-8三字节
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (!found) {
-                        // 没有找到映射，使用问号替代
-                        gb2312_str[gb2312_len++] = '?';
-                        p += 3; // 跳过UTF-8三字节
-                    }
+                    p += 3;
                 }
             } else {
                 // 无效的UTF-8序列，跳过
                 p += 3;
+            }
+        } else if ((*p & 0xF8) == 0xF0) {
+            // 4字节UTF-8字符
+            if (*(p + 1) && (*(p + 1) & 0xC0) == 0x80 && 
+                *(p + 2) && (*(p + 2) & 0xC0) == 0x80 &&
+                *(p + 3) && (*(p + 3) & 0xC0) == 0x80) {
+                
+                // 在4字节映射表中查找
+                bool found = false;
+                for (size_t i = 0; i < utf8_4byte_map_size; i++) {
+                    const char *map_utf8 = utf8_4byte_map[i].utf8;
+                    if (strlen(map_utf8) == 4) {
+                        if (memcmp(p, map_utf8, 4) == 0) {
+                            const char *gb = utf8_4byte_map[i].gb2312;
+                            if (gb2312_len + 2 <= gb2312_size - 1) {
+                                gb2312_str[gb2312_len++] = gb[0];
+                                gb2312_str[gb2312_len++] = gb[1];
+                                p += 4;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (!found) {
+                    // 没有找到映射，使用问号替代
+                    gb2312_str[gb2312_len++] = '?';
+                    p += 4;
+                }
+            } else {
+                // 无效的UTF-8序列，跳过
+                p += 4;
             }
         } else {
             // 无效的UTF-8序列，跳过
@@ -340,19 +350,54 @@ static size_t gb2312_to_utf8(const char *gb2312_str, char *utf8_str, size_t utf8
     
     while (*p && utf8_len < utf8_size - 1) {
         if ((*p & 0x80) && *(p + 1)) {
-            // 可能是GB2312字符
+            // 可能是GB2312字符，在不同映射表中查找
             bool found = false;
-            for (size_t i = 0; i < utf8_gb2312_map_size; i++) {
-                const char *gb = utf8_gb2312_map[i].gb2312;
+            
+            // 先在3字节映射表中查找（主要的中文字符）
+            for (size_t i = 0; i < utf8_3byte_map_size && !found; i++) {
+                const char *gb = utf8_3byte_map[i].gb2312;
                 if (gb[0] == p[0] && gb[1] == p[1]) {
-                    const char *utf = utf8_gb2312_map[i].utf8;
+                    const char *utf = utf8_3byte_map[i].utf8;
                     size_t utf_char_len = strlen(utf);
                     if (utf8_len + utf_char_len <= utf8_size - 1) {
                         strcpy(utf8_str + utf8_len, utf);
                         utf8_len += utf_char_len;
                         p += 2;
                         found = true;
-                        break;
+                    }
+                }
+            }
+            
+            // 在2字节映射表中查找
+            if (!found) {
+                for (size_t i = 0; i < utf8_2byte_map_size && !found; i++) {
+                    const char *gb = utf8_2byte_map[i].gb2312;
+                    if (gb[0] == p[0] && gb[1] == p[1]) {
+                        const char *utf = utf8_2byte_map[i].utf8;
+                        size_t utf_char_len = strlen(utf);
+                        if (utf8_len + utf_char_len <= utf8_size - 1) {
+                            strcpy(utf8_str + utf8_len, utf);
+                            utf8_len += utf_char_len;
+                            p += 2;
+                            found = true;
+                        }
+                    }
+                }
+            }
+            
+            // 在4字节映射表中查找
+            if (!found) {
+                for (size_t i = 0; i < utf8_4byte_map_size && !found; i++) {
+                    const char *gb = utf8_4byte_map[i].gb2312;
+                    if (gb[0] == p[0] && gb[1] == p[1]) {
+                        const char *utf = utf8_4byte_map[i].utf8;
+                        size_t utf_char_len = strlen(utf);
+                        if (utf8_len + utf_char_len <= utf8_size - 1) {
+                            strcpy(utf8_str + utf8_len, utf);
+                            utf8_len += utf_char_len;
+                            p += 2;
+                            found = true;
+                        }
                     }
                 }
             }
