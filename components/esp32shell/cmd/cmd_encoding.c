@@ -30,6 +30,14 @@ typedef struct {
 // 完整的UTF-8到GB2312映射表 - 使用单字符映射策略以保证转换一致性
 static const utf8_to_gb2312_map_t utf8_gb2312_map[] = {
     
+    // 缺失的关键字符 (优先添加)
+    {"设", "\xC9\xE8"}, {"推", "\xCD\xC6"}, {"荐", "\xBC\xF6"}, {"兼", "\xBC\xE6"},
+    {"老", "\xC0\xCF"}, {"旧", "\xBE\xC9"}, {"代", "\xB4\xFA"}, {"标", "\xB1\xEA"},
+    {"准", "\xD7\xBC"}, {"议", "\xD2\xE9"}, {"适", "\xCA\xCA"}, {"于", "\xD3\xDA"},
+    {"只", "\xD6\xBB"}, {"后", "\xBA\xF3"}, {"生", "\xC9\xFA"}, {"效", "\xD0\xA7"},
+    {"串", "\xB4\xAE"}, {"口", "\xBF\xDA"}, {"支", "\xD6\xA7"},
+    {"注", "\xD7\xA2"}, {"意", "\xD2\xE2"},
+    
     // 单个汉字 (关键字符)
     {"测", "\xB2\xE2"}, {"试", "\xCA\xD4"}, {"循", "\xD1\xAD"}, {"环", "\xBB\xB7"},
     {"按", "\xB0\xB4"}, {"键", "\xBC\xFC"}, {"下", "\xCF\xC2"}, {"松", "\xCB\xC9"},
@@ -268,7 +276,10 @@ static esp_err_t convert_utf8_to_gb2312(const char *src, char *dest, size_t dest
                         dest_pos += gb2312_len;
                         src_pos += utf8_len;
                         found = true;
-                        ESP_LOGD(TAG, "找到映射: %s -> %s", utf8_gb2312_map[i].utf8, utf8_gb2312_map[i].gb2312);
+                        ESP_LOGI(TAG, "找到映射[%zu]: %s -> GB2312(0x%02X 0x%02X)", 
+                                 i, utf8_gb2312_map[i].utf8,
+                                 (unsigned char)utf8_gb2312_map[i].gb2312[0],
+                                 (unsigned char)utf8_gb2312_map[i].gb2312[1]);
                         break;
                     }
                 }
@@ -278,6 +289,12 @@ static esp_err_t convert_utf8_to_gb2312(const char *src, char *dest, size_t dest
         if (!found) {
             // 未找到映射的非ASCII字符，打印UTF-8字节序列用于调试
             if (src_pos + 2 < src_len) {
+                ESP_LOGI(TAG, "检测到3字节UTF-8字符: 0x%02X 0x%02X 0x%02X (位置: %zu)", 
+                         (unsigned char)src[src_pos], 
+                         (unsigned char)src[src_pos+1], 
+                         (unsigned char)src[src_pos+2],
+                         src_pos);
+                ESP_LOGI(TAG, "开始在映射表中查找，映射表大小: %zu", utf8_gb2312_map_size);
                 ESP_LOGW(TAG, "未找到映射的UTF-8字符: 0x%02X 0x%02X 0x%02X (位置: %zu)", 
                          (unsigned char)src[src_pos], 
                          (unsigned char)src[src_pos+1], 

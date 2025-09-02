@@ -146,8 +146,8 @@ esp_err_t ads1115_read_voltage(uint8_t channel, float *voltage_v)
         return ret;
     }
     
-    // 等待转换完成
-    vTaskDelay(pdMS_TO_TICKS(10));
+    // 等待转换完成 (250 SPS需要4ms，增加安全余量)
+    vTaskDelay(pdMS_TO_TICKS(20));
     
     // 读取原始值
     int16_t raw_value;
@@ -157,8 +157,21 @@ esp_err_t ads1115_read_voltage(uint8_t channel, float *voltage_v)
         return ret;
     }
     
+    // 数据有效性检查 - 防止异常读数
+    if (raw_value < -32768 || raw_value > 32767) {
+        ESP_LOGW(TAG, "通道%d原始值超出范围: %d", channel, raw_value);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    
     // 转换为电压值 (使用4.096V增益)
-    *voltage_v = (float)raw_value * 4.096f / 32767.0f;
+    // 对于单端模式，使用32768.0f避免数值翻倍
+    *voltage_v = (float)raw_value * 4.096f / 32768.0f;
+    
+    // 电压值合理性检查
+    if (*voltage_v < -4.1f || *voltage_v > 4.1f) {
+        ESP_LOGW(TAG, "通道%d电压值异常: %.3fV (原始值: %d)", channel, *voltage_v, raw_value);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
     
     return ESP_OK;
 }
@@ -247,9 +260,33 @@ esp_err_t ads1115_read_all_detailed(ads1115_channel_data_t channel_data[ADS1115_
         // 读取原始值
         ret = ads111x_get_value(&ads1115_dev, &channel_data[ch].raw_value);
         if (ret == ESP_OK) {
+            // 数据有效性检查 - 防止异常读数
+            if (channel_data[ch].raw_value < -32768 || channel_data[ch].raw_value > 32767) {
+                ESP_LOGW(TAG, "通道%d原始值超出范围: %d", ch, channel_data[ch].raw_value);
+                channel_data[ch].status = ESP_ERR_INVALID_RESPONSE;
+                continue;
+            }
+            
             // 计算电压 (4.096V增益)
-            channel_data[ch].voltage_v = (float)channel_data[ch].raw_value * 4.096f / 32767.0f;
+            // 对于单端模式，使用32768.0f避免数值翻倍
+            channel_data[ch].voltage_v = (float)channel_data[ch].raw_value * 4.096f / 32768.0f;
+            
+            // 电压值合理性检查
+            if (channel_data[ch].voltage_v < -4.1f || channel_data[ch].voltage_v > 4.1f) {
+                ESP_LOGW(TAG, "通道%d电压值异常: %.3fV (原始值: %d)", ch, channel_data[ch].voltage_v, channel_data[ch].raw_value);
+                channel_data[ch].status = ESP_ERR_INVALID_RESPONSE;
+                continue;
+            }
+            
             channel_data[ch].current_ma = (channel_data[ch].voltage_v / ADS1115_SHUNT_RESISTOR_OHMS) * 1000.0f;
+            
+            // 电流值合理性检查 (理论最大136.5mA)
+            if (channel_data[ch].current_ma < -150.0f || channel_data[ch].current_ma > 150.0f) {
+                ESP_LOGW(TAG, "通道%d电流值异常: %.2fmA", ch, channel_data[ch].current_ma);
+                channel_data[ch].status = ESP_ERR_INVALID_RESPONSE;
+                continue;
+            }
+            
             channel_data[ch].status = ESP_OK;
         } else {
             channel_data[ch].status = ret;
