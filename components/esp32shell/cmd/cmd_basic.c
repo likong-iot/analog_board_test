@@ -125,9 +125,12 @@ static const cmd_help_info_t cmd_help_table[] = {
      "mv oldname.txt newname.txt\r\n"
      "mv file.txt /sdcard/backup/"},
     
-    {"cat", "cat <文件名>", "显示文件内容",
+    {"cat", "cat <文件名> [编码]", "显示文件内容",
      "cat readme.txt\r\n"
-     "cat /sdcard/config.ini"},
+     "cat /sdcard/config.ini\r\n"
+     "cat file.txt utf8\r\n"
+     "cat file.txt gb2312\r\n"
+     "cat file.txt auto"},
     
     {"touch", "touch <文件名>", "创建空文件或更新文件时间戳",
      "touch newfile.txt\r\n"
@@ -328,7 +331,7 @@ void task_help(uint32_t channel_id, const char *params) {
 void task_echo(uint32_t channel_id, const char *params) {
     char response[512];
     if (strlen(params) > 0) {
-        snprintf(response, sizeof(response), "Echo: %s\r\n", params);
+        shell_snprintf(response, sizeof(response), "Echo: %s\r\n", params);
     } else {
         shell_snprintf(response, sizeof(response), "Echo: 无参数\r\n");
     }
@@ -547,7 +550,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
         if (is_recording) {
-            snprintf(response, sizeof(response), 
+            shell_snprintf(response, sizeof(response), 
                     "【正在录制】宏: %s\r\n"
                     "状态: 录制中\r\n"
                     "命令数量: (录制中...)\r\n"
@@ -563,7 +566,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
             cmd_output(channel_id, (uint8_t *)list_buffer, strlen(list_buffer));
         }
         
-        snprintf(response, sizeof(response), "==================\r\n");
+        shell_snprintf(response, sizeof(response), "==================\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
     } else if (strncmp(params, "exec", 4) == 0) {
         // 执行宏
@@ -612,7 +615,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
             // 检查是否是正在录制的宏
             if (macro_buffer_is_recording(&instance->macro_buffer) && 
                 strcmp(instance->macro_buffer.current_macro_name, macro_name) == 0) {
-                snprintf(response, sizeof(response), 
+                shell_snprintf(response, sizeof(response), 
                         "=== 宏 '%s' 详细信息 ===\r\n"
                         "状态: 正在录制\r\n"
                         "命令列表:\r\n", macro_name);
@@ -628,14 +631,14 @@ void task_buffer(uint32_t channel_id, const char *params) {
                     cmd_output(channel_id, (uint8_t *)response, strlen(response));
                 }
                 
-                snprintf(response, sizeof(response), "==================\r\n");
+                shell_snprintf(response, sizeof(response), "==================\r\n");
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
                 return;
             }
             
             // 查找已保存的宏
             if (macro_buffer_exists(&instance->macro_buffer, macro_name)) {
-                snprintf(response, sizeof(response), 
+                shell_snprintf(response, sizeof(response), 
                         "=== 宏 '%s' 详细信息 ===\r\n"
                         "状态: 已保存\r\n"
                         "命令列表:\r\n", macro_name);
@@ -646,7 +649,7 @@ void task_buffer(uint32_t channel_id, const char *params) {
                 macro_buffer_get_commands(&instance->macro_buffer, macro_name, list_buffer, sizeof(list_buffer));
                 cmd_output(channel_id, (uint8_t *)list_buffer, strlen(list_buffer));
                 
-                snprintf(response, sizeof(response), "==================\r\n");
+                shell_snprintf(response, sizeof(response), "==================\r\n");
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
             } else {
                 shell_snprintf(response, sizeof(response), "错误: 宏 '%s' 不存在\r\n", macro_name);

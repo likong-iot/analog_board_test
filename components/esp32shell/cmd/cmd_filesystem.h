@@ -68,7 +68,9 @@ void task_mv(uint32_t channel_id, const char *params);
 /**
  * @brief cat命令 - 显示文件内容
  * @param channel_id 通信通道ID
- * @param params 参数 (文件名)
+ * @param params 参数 (文件名 [编码])
+ * @note 编码选项: utf8(不转换), gb2312(转换), auto(自动检测)
+ * @note 不指定编码时，按原编码输出
  */
 void task_cat(uint32_t channel_id, const char *params);
 

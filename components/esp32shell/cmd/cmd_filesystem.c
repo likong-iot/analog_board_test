@@ -105,7 +105,7 @@ void task_pwd(uint32_t channel_id, const char *params) {
     char response[MAX_PATH_LEN + 50];
     
     if (filesystem_get_cwd(channel_id, cwd, sizeof(cwd))) {
-        snprintf(response, sizeof(response), "%s\r\n", cwd);
+        shell_snprintf(response, sizeof(response), "%s\r\n", cwd);
     } else {
         shell_snprintf(response, sizeof(response), "错误: 无法获取当前工作目录\r\n");
     }
@@ -203,7 +203,7 @@ void task_ls(uint32_t channel_id, const char *params) {
     shell_snprintf(response, sizeof(response), "目录内容: %s\r\n", target_path);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     
-    snprintf(response, sizeof(response), "----------------------------------------\r\n");
+    shell_snprintf(response, sizeof(response), "----------------------------------------\r\n");
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     
     struct dirent *entry;
@@ -222,22 +222,22 @@ void task_ls(uint32_t channel_id, const char *params) {
         struct stat st;
         if (stat(full_path, &st) == 0) {
             if (S_ISDIR(st.st_mode)) {
-                snprintf(response, sizeof(response), "d %-20s\r\n", entry->d_name);
+                shell_snprintf(response, sizeof(response), "d %-20s\r\n", entry->d_name);
                 dir_count++;
             } else {
-                snprintf(response, sizeof(response), "- %-20s %8ld bytes\r\n", 
+                shell_snprintf(response, sizeof(response), "- %-20s %8ld bytes\r\n", 
                         entry->d_name, st.st_size);
                 file_count++;
             }
         } else {
-            snprintf(response, sizeof(response), "? %-20s\r\n", entry->d_name);
+            shell_snprintf(response, sizeof(response), "? %-20s\r\n", entry->d_name);
         }
         // 添加调试日志来检查文件名
         ESP_LOGD(TAG, "列出文件: %s (原始名称: %s)", full_path, entry->d_name);
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
     }
     
-    snprintf(response, sizeof(response), "----------------------------------------\r\n");
+    shell_snprintf(response, sizeof(response), "----------------------------------------\r\n");
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     shell_snprintf(response, sizeof(response), "总计: %d个文件, %d个目录\r\n", file_count, dir_count);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -378,7 +378,7 @@ void task_rmdir(uint32_t channel_id, const char *params) {
             strcat(full_path, "/");
             strcat(full_path, dir_name);
         } else {
-            snprintf(response, sizeof(response), "错误: 路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -393,13 +393,13 @@ void task_rmdir(uint32_t channel_id, const char *params) {
     }
     
     if (result == 0) {
-        snprintf(response, sizeof(response), "目录删除成功: %s\r\n", full_path);
+        shell_snprintf(response, sizeof(response), "目录删除成功: %s\r\n", full_path);
         ESP_LOGI(TAG, "目录删除成功: %s", full_path);
     } else {
         if (errno == ENOTEMPTY && !recursive) {
-            snprintf(response, sizeof(response), "错误: 目录不为空，无法删除: %s\r\n提示: 使用 'rmdir -r %s' 递归删除\r\n", full_path, dir_name);
+            shell_snprintf(response, sizeof(response), "错误: 目录不为空，无法删除: %s\r\n提示: 使用 'rmdir -r %s' 递归删除\r\n", full_path, dir_name);
         } else {
-            snprintf(response, sizeof(response), "错误: 无法删除目录: %s (%s)\r\n", 
+            shell_snprintf(response, sizeof(response), "错误: 无法删除目录: %s (%s)\r\n", 
                     full_path, strerror(errno));
         }
         ESP_LOGE(TAG, "无法删除目录: %s (%s)", full_path, strerror(errno));
@@ -413,7 +413,7 @@ void task_rm(uint32_t channel_id, const char *params) {
     char full_path[MAX_PATH_LEN];
     
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), "用法: rm <文件名>\r\n");
+        shell_snprintf(response, sizeof(response), "用法: rm <文件名>\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -430,7 +430,7 @@ void task_rm(uint32_t channel_id, const char *params) {
             strcat(full_path, "/");
             strcat(full_path, params);
         } else {
-            snprintf(response, sizeof(response), "错误: 路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -438,9 +438,9 @@ void task_rm(uint32_t channel_id, const char *params) {
     
     // 删除文件
     if (remove(full_path) == 0) {
-        snprintf(response, sizeof(response), "文件删除成功: %s\r\n", full_path);
+        shell_snprintf(response, sizeof(response), "文件删除成功: %s\r\n", full_path);
     } else {
-        snprintf(response, sizeof(response), "错误: 无法删除文件: %s (%s)\r\n", 
+        shell_snprintf(response, sizeof(response), "错误: 无法删除文件: %s (%s)\r\n", 
                 full_path, strerror(errno));
     }
     
@@ -457,7 +457,7 @@ void task_cp(uint32_t channel_id, const char *params) {
     char *dst = strtok(NULL, " ");
     
     if (src == NULL || dst == NULL) {
-        snprintf(response, sizeof(response), "用法: cp <源文件> <目标文件>\r\n");
+        shell_snprintf(response, sizeof(response), "用法: cp <源文件> <目标文件>\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -473,7 +473,7 @@ void task_cp(uint32_t channel_id, const char *params) {
             strcat(src_path, "/");
             strcat(src_path, src);
         } else {
-            snprintf(response, sizeof(response), "错误: 源文件路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 源文件路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -488,7 +488,7 @@ void task_cp(uint32_t channel_id, const char *params) {
             strcat(dst_path, "/");
             strcat(dst_path, dst);
         } else {
-            snprintf(response, sizeof(response), "错误: 目标文件路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 目标文件路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -497,14 +497,14 @@ void task_cp(uint32_t channel_id, const char *params) {
     // 复制文件
     FILE *src_file = fopen(src_path, "rb");
     if (src_file == NULL) {
-        snprintf(response, sizeof(response), "错误: 无法打开源文件: %s\r\n", src_path);
+        shell_snprintf(response, sizeof(response), "错误: 无法打开源文件: %s\r\n", src_path);
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
     
     FILE *dst_file = fopen(dst_path, "wb");
     if (dst_file == NULL) {
-        snprintf(response, sizeof(response), "错误: 无法创建目标文件: %s\r\n", dst_path);
+        shell_snprintf(response, sizeof(response), "错误: 无法创建目标文件: %s\r\n", dst_path);
         fclose(src_file);
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
@@ -518,7 +518,7 @@ void task_cp(uint32_t channel_id, const char *params) {
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), src_file)) > 0) {
         bytes_written = fwrite(buffer, 1, bytes_read, dst_file);
         if (bytes_written != bytes_read) {
-            snprintf(response, sizeof(response), "错误: 写入失败\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 写入失败\r\n");
             fclose(src_file);
             fclose(dst_file);
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -531,7 +531,7 @@ void task_cp(uint32_t channel_id, const char *params) {
     fclose(dst_file);
     
     // 安全格式化 - 避免长路径导致的截断警告
-    snprintf(response, sizeof(response), "文件复制成功 (%zu bytes)\r\n", total_bytes);
+    shell_snprintf(response, sizeof(response), "文件复制成功 (%zu bytes)\r\n", total_bytes);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
 }
 
@@ -545,7 +545,7 @@ void task_mv(uint32_t channel_id, const char *params) {
     char *dst = strtok(NULL, " ");
     
     if (src == NULL || dst == NULL) {
-        snprintf(response, sizeof(response), "用法: mv <源文件> <目标文件>\r\n");
+        shell_snprintf(response, sizeof(response), "用法: mv <源文件> <目标文件>\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -561,7 +561,7 @@ void task_mv(uint32_t channel_id, const char *params) {
             strcat(src_path, "/");
             strcat(src_path, src);
         } else {
-            snprintf(response, sizeof(response), "错误: 源文件路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 源文件路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -575,7 +575,7 @@ void task_mv(uint32_t channel_id, const char *params) {
             strcat(dst_path, "/");
             strcat(dst_path, dst);
         } else {
-            snprintf(response, sizeof(response), "错误: 目标文件路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 目标文件路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -583,9 +583,9 @@ void task_mv(uint32_t channel_id, const char *params) {
     
     // 移动/重命名文件
     if (rename(src_path, dst_path) == 0) {
-        snprintf(response, sizeof(response), "文件移动成功\r\n");
+        shell_snprintf(response, sizeof(response), "文件移动成功\r\n");
     } else {
-        snprintf(response, sizeof(response), "错误: 无法移动文件 (%s)\r\n", strerror(errno));
+        shell_snprintf(response, sizeof(response), "错误: 无法移动文件 (%s)\r\n", strerror(errno));
     }
     
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -594,26 +594,55 @@ void task_mv(uint32_t channel_id, const char *params) {
 void task_cat(uint32_t channel_id, const char *params) {
     char response[1024];
     char full_path[MAX_PATH_LEN];
+    char filename[256];
+    char encoding_param[32];
+    bool use_encoding_conversion = false;
     
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), "用法: cat <文件名>\r\n");
+        shell_snprintf(response, sizeof(response), 
+                "用法: cat <文件名> [编码]\r\n"
+                "编码选项: utf8, gb2312, auto\r\n"
+                "不指定编码时，按原编码输出\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
     
+    // 解析参数：文件名和可选的编码参数
+    int parsed = sscanf(params, "%255s %31s", filename, encoding_param);
+    if (parsed < 1) {
+        shell_snprintf(response, sizeof(response), "错误: 请指定文件名\r\n");
+        cmd_output(channel_id, (uint8_t *)response, strlen(response));
+        return;
+    }
+    
+    // 检查是否指定了编码参数
+    if (parsed >= 2) {
+        if (strcmp(encoding_param, "utf8") == 0 || 
+            strcmp(encoding_param, "gb2312") == 0 || 
+            strcmp(encoding_param, "auto") == 0) {
+            use_encoding_conversion = true;
+        } else {
+            shell_snprintf(response, sizeof(response), 
+                    "错误: 无效的编码参数 '%s'\r\n"
+                    "支持的编码: utf8, gb2312, auto\r\n", encoding_param);
+            cmd_output(channel_id, (uint8_t *)response, strlen(response));
+            return;
+        }
+    }
+    
     // 构建完整路径
-    if (params[0] == '/') {
-        strncpy(full_path, params, sizeof(full_path) - 1);
+    if (filename[0] == '/') {
+        strncpy(full_path, filename, sizeof(full_path) - 1);
         full_path[sizeof(full_path) - 1] = '\0';
     } else {
         char cwd[MAX_PATH_LEN];
         filesystem_get_cwd(channel_id, cwd, sizeof(cwd));
-        if (strlen(cwd) <= SAFE_PATH_LEN && strlen(params) <= SAFE_PATH_LEN) {
+        if (strlen(cwd) <= SAFE_PATH_LEN && strlen(filename) <= SAFE_PATH_LEN) {
             strcpy(full_path, cwd);
             strcat(full_path, "/");
-            strcat(full_path, params);
+            strcat(full_path, filename);
         } else {
-            snprintf(response, sizeof(response), "错误: 文件路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 文件路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -621,15 +650,34 @@ void task_cat(uint32_t channel_id, const char *params) {
     
     FILE *file = fopen(full_path, "r");
     if (file == NULL) {
-        snprintf(response, sizeof(response), "错误: 无法打开文件: %s\r\n", full_path);
+        shell_snprintf(response, sizeof(response), "错误: 无法打开文件: %s\r\n", full_path);
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
     
     // 读取并显示文件内容
     char line[256];
+    char converted_line[512]; // 编码转换后的缓冲区
+    
     while (fgets(line, sizeof(line), file)) {
-        cmd_output(channel_id, (uint8_t *)line, strlen(line));
+        if (use_encoding_conversion) {
+            // 根据编码参数进行转换
+            if (strcmp(encoding_param, "utf8") == 0) {
+                // 强制UTF-8输出（不转换）
+                cmd_output(channel_id, (uint8_t *)line, strlen(line));
+            } else if (strcmp(encoding_param, "gb2312") == 0) {
+                // 强制GB2312输出（转换）
+                shell_snprintf(converted_line, sizeof(converted_line), "%s", line);
+                cmd_output(channel_id, (uint8_t *)converted_line, strlen(converted_line));
+            } else if (strcmp(encoding_param, "auto") == 0) {
+                // 自动检测编码并转换
+                shell_snprintf(converted_line, sizeof(converted_line), "%s", line);
+                cmd_output(channel_id, (uint8_t *)converted_line, strlen(converted_line));
+            }
+        } else {
+            // 不指定编码时，按原编码输出（不转换）
+            cmd_output(channel_id, (uint8_t *)line, strlen(line));
+        }
     }
     
     fclose(file);
@@ -640,7 +688,7 @@ void task_touch(uint32_t channel_id, const char *params) {
     char full_path[MAX_PATH_LEN];
     
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), "用法: touch <文件名>\r\n");
+        shell_snprintf(response, sizeof(response), "用法: touch <文件名>\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -657,7 +705,7 @@ void task_touch(uint32_t channel_id, const char *params) {
             strcat(full_path, "/");
             strcat(full_path, params);
         } else {
-            snprintf(response, sizeof(response), "错误: 文件路径过长\r\n");
+            shell_snprintf(response, sizeof(response), "错误: 文件路径过长\r\n");
             cmd_output(channel_id, (uint8_t *)response, strlen(response));
             return;
         }
@@ -666,10 +714,10 @@ void task_touch(uint32_t channel_id, const char *params) {
     // 创建空文件
     FILE *file = fopen(full_path, "a");
     if (file == NULL) {
-        snprintf(response, sizeof(response), "错误: 无法创建文件: %s\r\n", full_path);
+        shell_snprintf(response, sizeof(response), "错误: 无法创建文件: %s\r\n", full_path);
     } else {
         fclose(file);
-        snprintf(response, sizeof(response), "文件创建/更新成功: %s\r\n", full_path);
+        shell_snprintf(response, sizeof(response), "文件创建/更新成功: %s\r\n", full_path);
     }
     
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -693,7 +741,7 @@ void task_du(uint32_t channel_id, const char *params) {
                 strcat(target_path, "/");
                 strcat(target_path, params);
             } else {
-                snprintf(response, sizeof(response), "错误: 路径过长\r\n");
+                shell_snprintf(response, sizeof(response), "错误: 路径过长\r\n");
                 cmd_output(channel_id, (uint8_t *)response, strlen(response));
                 return;
             }
@@ -703,7 +751,7 @@ void task_du(uint32_t channel_id, const char *params) {
     // 简单实现：只统计当前目录文件大小
     DIR *dir = opendir(target_path);
     if (dir == NULL) {
-        snprintf(response, sizeof(response), "错误: 无法打开目录: %s\r\n", target_path);
+        shell_snprintf(response, sizeof(response), "错误: 无法打开目录: %s\r\n", target_path);
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -731,11 +779,11 @@ void task_du(uint32_t channel_id, const char *params) {
     
     closedir(dir);
     
-    snprintf(response, sizeof(response), "目录: %s\r\n", target_path);
+    shell_snprintf(response, sizeof(response), "目录: %s\r\n", target_path);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
-    snprintf(response, sizeof(response), "文件数: %d\r\n", file_count);
+    shell_snprintf(response, sizeof(response), "文件数: %d\r\n", file_count);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
-    snprintf(response, sizeof(response), "总大小: %ld bytes (%.2f KB)\r\n", 
+    shell_snprintf(response, sizeof(response), "总大小: %ld bytes (%.2f KB)\r\n", 
             total_size, (float)total_size / 1024.0);
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
 }
@@ -745,7 +793,7 @@ void task_find(uint32_t channel_id, const char *params) {
     char cwd[MAX_PATH_LEN];
     
     if (strlen(params) == 0) {
-        snprintf(response, sizeof(response), "用法: find <文件名模式>\r\n");
+        shell_snprintf(response, sizeof(response), "用法: find <文件名模式>\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
@@ -754,16 +802,16 @@ void task_find(uint32_t channel_id, const char *params) {
     
     DIR *dir = opendir(cwd);
     if (dir == NULL) {
-        snprintf(response, sizeof(response), "错误: 无法打开当前目录\r\n");
+        shell_snprintf(response, sizeof(response), "错误: 无法打开当前目录\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         return;
     }
     
     // 安全格式化查找消息
     if (strlen(cwd) + strlen(params) + 30 < sizeof(response)) {
-        snprintf(response, sizeof(response), "在 %s 中查找: %s\r\n", cwd, params);
+        shell_snprintf(response, sizeof(response), "在 %s 中查找: %s\r\n", cwd, params);
     } else {
-        snprintf(response, sizeof(response), "正在查找...\r\n");
+        shell_snprintf(response, sizeof(response), "正在查找...\r\n");
     }
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     
@@ -785,9 +833,9 @@ void task_find(uint32_t channel_id, const char *params) {
     closedir(dir);
     
     if (found_count == 0) {
-        snprintf(response, sizeof(response), "未找到匹配的文件\r\n");
+        shell_snprintf(response, sizeof(response), "未找到匹配的文件\r\n");
     } else {
-        snprintf(response, sizeof(response), "找到 %d 个匹配的文件\r\n", found_count);
+        shell_snprintf(response, sizeof(response), "找到 %d 个匹配的文件\r\n", found_count);
     }
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
 }

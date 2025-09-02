@@ -362,7 +362,7 @@ void task_shell_encoding(uint32_t channel_id, const char *params)
                     "- 串口助手: 编码格式 → UTF-8\r\n");
         } else {
             ESP_LOGE(TAG, "设置UTF-8编码失败: %s", esp_err_to_name(ret));
-            snprintf(response, sizeof(response), "设置UTF-8编码失败: %s\r\n", esp_err_to_name(ret));
+            shell_snprintf(response, sizeof(response), "设置UTF-8编码失败: %s\r\n", esp_err_to_name(ret));
         }
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         
@@ -379,7 +379,7 @@ void task_shell_encoding(uint32_t channel_id, const char *params)
                     "建议串口工具设置为GB2312编码\r\n");
         } else {
             ESP_LOGE(TAG, "设置GB2312编码失败: %s", esp_err_to_name(ret));
-            snprintf(response, sizeof(response), "设置GB2312编码失败: %s\r\n", esp_err_to_name(ret));
+            shell_snprintf(response, sizeof(response), "设置GB2312编码失败: %s\r\n", esp_err_to_name(ret));
         }
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
         

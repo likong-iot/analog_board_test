@@ -16,7 +16,7 @@ void task_tasks(uint32_t channel_id, const char *params) {
     // 获取总任务数
     UBaseType_t total_tasks = uxTaskGetNumberOfTasks();
     
-    snprintf(response, sizeof(response),
+    shell_snprintf(response, sizeof(response),
              "=== 任务信息 ===\r\n"
              "总任务数: %lu\r\n"
              "当前任务: %s\r\n"
@@ -27,7 +27,7 @@ void task_tasks(uint32_t channel_id, const char *params) {
     cmd_output(channel_id, (uint8_t *)response, strlen(response));
     
     // 显示状态代码含义
-    snprintf(response, sizeof(response),
+    shell_snprintf(response, sizeof(response),
              "状态代码说明:\r\n"
              "R = Running (运行中)\r\n"
              "B = Blocked (阻塞)\r\n"
@@ -47,7 +47,7 @@ void task_tasks(uint32_t channel_id, const char *params) {
         
         free(task_list_buffer);
     } else {
-        snprintf(response, sizeof(response),
+        shell_snprintf(response, sizeof(response),
                  "无法获取任务列表\r\n"
                  "==================\r\n");
         cmd_output(channel_id, (uint8_t *)response, strlen(response));
@@ -68,7 +68,7 @@ void task_heap(uint32_t channel_id, const char *params) {
     float used_percent = (float)used_heap / total_heap * 100.0f;
     float min_free_percent = (float)min_free_heap / total_heap * 100.0f;
     
-    snprintf(response, sizeof(response),
+    shell_snprintf(response, sizeof(response),
              "=== 内存信息 ===\r\n"
              "总堆内存: %lu bytes (100%%)\r\n"
              "已用内存: %lu bytes (%.1f%%)\r\n"
@@ -89,7 +89,7 @@ void task_uptime(uint32_t channel_id, const char *params) {
     uint32_t minutes = (uptime_ms % (1000 * 60 * 60)) / (1000 * 60);
     uint32_t seconds = (uptime_ms % (1000 * 60)) / 1000;
     
-    snprintf(response, sizeof(response),
+    shell_snprintf(response, sizeof(response),
              "=== 运行时间 ===\r\n"
              "总运行时间: %02lu:%02lu:%02lu\r\n"
              "毫秒数: %lu ms\r\n"
