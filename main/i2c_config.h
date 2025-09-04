@@ -9,7 +9,7 @@
 #ifndef I2C_CONFIG_H
 #define I2C_CONFIG_H
 
-#include "driver/i2c.h"
+// #include "driver/i2c.h"  // 移除旧I2C驱动，使用i2cdev库
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -19,7 +19,7 @@ extern "C" {
 /* I2C总线硬件配置 */
 #define I2C_MASTER_SCL_IO           32              /*!< I2C主机时钟线GPIO引脚 */
 #define I2C_MASTER_SDA_IO           33              /*!< I2C主机数据线GPIO引脚 */
-#define I2C_MASTER_NUM              I2C_NUM_0       /*!< I2C端口号 */
+#define I2C_MASTER_NUM              0               /*!< I2C端口号 */
 #define I2C_MASTER_FREQ_HZ          100000          /*!< I2C主机时钟频率 */
 
 /* I2C通用配置 */
@@ -27,9 +27,9 @@ extern "C" {
 #define I2C_MASTER_RX_BUF_DISABLE   0               /*!< I2C主机不需要缓冲区 */
 #define I2C_MASTER_TIMEOUT_MS       1000            /*!< I2C操作超时时间(毫秒) */
 
-/* I2C操作标志 */
-#define I2C_WRITE_BIT               I2C_MASTER_WRITE /*!< I2C主机写操作 */
-#define I2C_READ_BIT                I2C_MASTER_READ  /*!< I2C主机读操作 */
+/* I2C操作标志 (兼容定义) */
+#define I2C_WRITE_BIT               0                /*!< I2C主机写操作 */
+#define I2C_READ_BIT                1                /*!< I2C主机读操作 */
 #define I2C_ACK_CHECK_EN            0x1              /*!< I2C主机检查从机ACK */
 #define I2C_ACK_CHECK_DIS           0x0              /*!< I2C主机不检查从机ACK */
 #define I2C_ACK_VAL                 0x0              /*!< I2C ACK值 */

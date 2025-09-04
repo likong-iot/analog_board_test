@@ -16,7 +16,7 @@ extern "C" {
 #define UART1_RXD_PIN   23
 #define UART2_TXD_PIN   27
 #define UART2_RXD_PIN   26
-#define UART_BAUD_RATE  56000
+#define UART_BAUD_RATE  57600
 #define UART_BUF_SIZE   1024
 
 /**

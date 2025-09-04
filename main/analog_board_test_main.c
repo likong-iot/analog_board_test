@@ -89,6 +89,14 @@ void app_main(void) {
     return;
   }
 
+  // 等待I2C总线稳定
+  vTaskDelay(pdMS_TO_TICKS(100));
+  
+  // 预期的I2C设备
+  ESP_LOGI(TAG, "预期I2C设备：");
+  ESP_LOGI(TAG, "  - TCA9535 I/O扩展器 (地址: 0x%02X)", TCA9535_I2C_ADDR);
+  ESP_LOGI(TAG, "  - ADS1115 ADC (地址: 0x%02X)", ADS1115_I2C_ADDR);
+  
   // 初始化TCA9535 I/O扩展器
   ESP_LOGI(TAG, "初始化TCA9535 I/O扩展器...");
   tca9535_config_t tca9535_config = {
@@ -96,8 +104,8 @@ void app_main(void) {
                   .addr = TCA9535_I2C_ADDR,
                   .cfg = {.sda_io_num = I2C_MASTER_SDA_IO,
                           .scl_io_num = I2C_MASTER_SCL_IO,
-                          .sda_pullup_en = true,
-                          .scl_pullup_en = true,
+                          .sda_pullup_en = GPIO_PULLUP_ENABLE,
+                          .scl_pullup_en = GPIO_PULLUP_ENABLE,
                           .master.clk_speed = I2C_MASTER_FREQ_HZ}}};
 
   ret = tca9535_create(&tca9535_config, &tca9535_handle);
@@ -106,15 +114,54 @@ void app_main(void) {
     ESP_LOGW(TAG, "系统将继续运行，但TCA9535功能不可用");
     tca9535_handle = NULL;
   } else {
-    // 测试TCA9535连接
-    tca9535_register_t test_reg;
-    ret = tca9535_read_input(tca9535_handle, &test_reg);
-    if (ret == ESP_OK) {
-      ESP_LOGI(TAG, "TCA9535初始化成功 (地址: 0x%02X)", TCA9535_I2C_ADDR);
-      ESP_LOGI(TAG, "TCA9535输入状态 - P0: 0x%02X, P1: 0x%02X",
-               test_reg.ports.port0.byte, test_reg.ports.port1.byte);
-    } else {
-      ESP_LOGW(TAG, "TCA9535通信测试失败: %s", esp_err_to_name(ret));
+    // 多次尝试TCA9535连接测试
+    bool tca9535_ok = false;
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      ESP_LOGI(TAG, "TCA9535连接测试，第%d次尝试...", attempt);
+      
+      tca9535_register_t test_reg;
+      ret = tca9535_read_input(tca9535_handle, &test_reg);
+      if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "TCA9535初始化成功 (地址: 0x%02X)", TCA9535_I2C_ADDR);
+        ESP_LOGI(TAG, "TCA9535输入状态 - P0: 0x%02X, P1: 0x%02X",
+                 test_reg.ports.port0.byte, test_reg.ports.port1.byte);
+        
+        // 读取配置寄存器进行诊断
+        tca9535_register_t config_reg;
+        ret = tca9535_read_config(tca9535_handle, &config_reg);
+        if (ret == ESP_OK) {
+          ESP_LOGI(TAG, "TCA9535配置状态 - P0: 0x%02X (1=输入,0=输出), P1: 0x%02X",
+                   config_reg.ports.port0.byte, config_reg.ports.port1.byte);
+        }
+        
+        // 初始化所有引脚为输出模式，低电平
+        tca9535_register_t init_config = {.word = 0x0000}; // 全部设为输出
+        tca9535_register_t init_output = {.word = 0x0000}; // 全部输出低电平
+        
+        ret = tca9535_write_config(tca9535_handle, &init_config);
+        if (ret == ESP_OK) {
+          ret = tca9535_write_output(tca9535_handle, &init_output);
+          if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "TCA9535初始化配置完成：所有引脚设为输出低电平");
+          }
+        }
+        
+        tca9535_ok = true;
+        break;
+      } else {
+        ESP_LOGW(TAG, "TCA9535通信测试失败 (尝试%d/3): %s", attempt, esp_err_to_name(ret));
+        if (attempt < 3) {
+          vTaskDelay(pdMS_TO_TICKS(200)); // 重试前等待
+        }
+      }
+    }
+    
+    if (!tca9535_ok) {
+      ESP_LOGE(TAG, "TCA9535连接失败，可能原因：");
+      ESP_LOGE(TAG, "  1. 硬件连接问题 (SCL/SDA线)");
+      ESP_LOGE(TAG, "  2. I2C地址错误 (当前: 0x%02X)", TCA9535_I2C_ADDR);
+      ESP_LOGE(TAG, "  3. 电源供电问题");
+      ESP_LOGE(TAG, "  4. I2C总线冲突");
       ESP_LOGW(TAG, "系统将继续运行，但TCA9535功能不可用");
       tca9535_delete(tca9535_handle);
       tca9535_handle = NULL;

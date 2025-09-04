@@ -261,9 +261,9 @@ static size_t utf8_to_gb2312(const char *utf8_str, char *gb2312_str, size_t gb23
             }
         } else if ((*p & 0xF0) == 0xE0) {
             // 3字节UTF-8字符
-            ESP_LOGI(TAG, "检测到3字节UTF-8字符: 0x%02X 0x%02X 0x%02X (位置: %d)", 
-                     (unsigned char)p[0], (unsigned char)p[1], (unsigned char)p[2], 
-                     (int)(p - utf8_str));
+            // ESP_LOGI(TAG, "检测到3字节UTF-8字符: 0x%02X 0x%02X 0x%02X (位置: %d)", 
+            //          (unsigned char)p[0], (unsigned char)p[1], (unsigned char)p[2], 
+            //          (int)(p - utf8_str));
             
             if (*(p + 1) && (*(p + 1) & 0xC0) == 0x80 && 
                 *(p + 2) && (*(p + 2) & 0xC0) == 0x80) {
@@ -272,9 +272,6 @@ static size_t utf8_to_gb2312(const char *utf8_str, char *gb2312_str, size_t gb23
                 uint32_t utf8_bytes = ((uint32_t)(unsigned char)p[0] << 16) | 
                                      ((uint32_t)(unsigned char)p[1] << 8) | 
                                      (uint32_t)(unsigned char)p[2];
-                
-                ESP_LOGW(TAG, "UTF-8字节序列有效，开始查找映射...");
-                
                 // 在3字节映射表中查找
                 bool found = false;
                 for (size_t i = 0; i < utf8_3byte_map_size; i++) {
@@ -283,7 +280,6 @@ static size_t utf8_to_gb2312(const char *utf8_str, char *gb2312_str, size_t gb23
                         // 直接进行内存比较，支持两种格式
                         if (memcmp(p, map_utf8, 3) == 0) {
                             const char *gb = utf8_3byte_map[i].gb2312;
-                            ESP_LOGWW(TAG, "找到映射[%d]: UTF-8(0x%02X 0x%02X 0x%02X) -> GB2312(0x%02X 0x%02X)", 
                                      (int)i, (unsigned char)p[0], (unsigned char)p[1], (unsigned char)p[2],
                                      (unsigned char)gb[0], (unsigned char)gb[1]);
                             if (gb2312_len + 2 <= gb2312_size - 1) {
