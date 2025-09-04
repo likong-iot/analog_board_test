@@ -165,7 +165,7 @@ esp_err_t key_start_detection(void)
     
     detection_running = true;
     
-    BaseType_t ret = xTaskCreate(key_detection_task, "key_detect", 2048, NULL, 6, &key_task_handle);
+    BaseType_t ret = xTaskCreate(key_detection_task, "key_detect", 4096, NULL, 6, &key_task_handle);
     if (ret != pdPASS) {
         detection_running = false;
         ESP_LOGE(TAG, "创建按键检测任务失败");

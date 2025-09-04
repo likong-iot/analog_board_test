@@ -15,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "freertos/semphr.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -40,12 +41,29 @@ static void key_event_handler(key_event_t event, uint32_t timestamp_ms)
         return; // 测试未运行或没有Shell通道，忽略按键事件
     }
     
-    char output[128];
-    const char *event_str = (event == KEY_EVENT_PRESSED) ? "按下" : "松开";
+    // 使用静态缓冲区减少栈使用，并添加互斥保护
+    static char output[128];
+    static SemaphoreHandle_t output_mutex = NULL;
     
-    // 在Shell中打印按键事件
-    shell_snprintf(output, sizeof(output), "\r\n>>> 按键%s (时间戳: %lu ms) <<<\r\n", event_str, timestamp_ms);
-    cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
+    // 初始化互斥锁（只执行一次）
+    if (output_mutex == NULL) {
+        output_mutex = xSemaphoreCreateMutex();
+        if (output_mutex == NULL) {
+            ESP_LOGE(TAG, "创建输出互斥锁失败");
+            return;
+        }
+    }
+    
+    // 获取互斥锁
+    if (xSemaphoreTake(output_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        const char *event_str = (event == KEY_EVENT_PRESSED) ? "按下" : "松开";
+        
+        // 在Shell中打印按键事件
+        shell_snprintf(output, sizeof(output), "\r\n>>> 按键%s (时间戳: %lu ms) <<<\r\n", event_str, timestamp_ms);
+        cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
+        
+        xSemaphoreGive(output_mutex);
+    }
     
     // 记录到日志文件
     if (sd_card_is_mounted()) {
@@ -79,7 +97,7 @@ static esp_err_t write_test_data_to_sd(const ads1115_channel_data_t *channel_dat
     uint32_t timestamp_ms = xTaskGetTickCount() * portTICK_PERIOD_MS;
     
     // 写入时间戳、循环计数、IO状态、LED状态
-    // 显示实际拉高的IO和点亮的LED（因为在写入时已经切换到下一个了）
+    // 显示实际拉低的IO和点亮的LED（因为在写入时已经切换到下一个了）
     uint8_t actual_io = (g_test_status.current_io == 0) ? 8 : g_test_status.current_io; // 显示1-8
     uint8_t actual_led = (g_test_status.current_led == 1) ? 4 : g_test_status.current_led - 1;
     
@@ -124,16 +142,17 @@ static void test_task_main(void *arg)
                 }
             }
             
-            // 2. 控制TCA9535 IO (循环拉高0-7)
+            // 2. 控制TCA9535 IO (循环拉低0-7)
             tca9535_handle_t tca_handle = get_tca9535_handle();
             if (tca_handle != NULL) {
-                // 先将所有IO设为低电平
-                tca9535_register_t output_reg = {0};
+                // 先将所有IO设为高电平
+                tca9535_register_t output_reg = {.word = 0xFFFF};
                 tca9535_write_output(tca_handle, &output_reg);
                 
-                // 拉高当前IO
+                // 拉低当前IO
                 if (g_test_status.current_io < 8) {
-                    output_reg.ports.port0.byte = (1 << g_test_status.current_io);
+                    output_reg.ports.port0.byte = 0xFF & ~(1 << g_test_status.current_io);
+                    output_reg.ports.port1.byte = 0xFF; // 保持P1口全高
                     tca9535_write_output(tca_handle, &output_reg);
                 }
                 
@@ -158,7 +177,7 @@ static void test_task_main(void *arg)
                             shell_snprintf(output, sizeof(output), "\r\n=== 测试循环 %lu ===\r\n", g_test_status.cycle_count);
             cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
 
-            shell_snprintf(output, sizeof(output), "当前拉高IO: %d | 当前点亮LED: %d\r\n", display_io, display_led);
+            shell_snprintf(output, sizeof(output), "当前拉低IO: %d | 当前点亮LED: %d\r\n", display_io, display_led);
             cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
                 
                                 // 打印ADS1115数据到Shell终端
@@ -261,7 +280,7 @@ void task_test_control(uint32_t channel_id, const char *params)
             FILE *file = fopen(TEST_LOG_FILE_PATH, "a");
             if (file != NULL) {
                 fprintf(file, "\n=== 新测试会话开始 ===\n");
-                fprintf(file, "时间戳(ms),循环计数,拉高IO号(1-8),点亮LED号(1-4),CH0电压(V),CH0电流(mA),CH1电压(V),CH1电流(mA),CH2电压(V),CH2电流(mA),CH3电压(V),CH3电流(mA)\n");
+                fprintf(file, "时间戳(ms),循环计数,拉低IO号(1-8),点亮LED号(1-4),CH0电压(V),CH0电流(mA),CH1电压(V),CH1电流(mA),CH2电压(V),CH2电流(mA),CH3电压(V),CH3电流(mA)\n");
                 fclose(file);
             }
         } else {
@@ -269,7 +288,7 @@ void task_test_control(uint32_t channel_id, const char *params)
             FILE *file = fopen(TEST_LOG_FILE_PATH, "w");
             if (file != NULL) {
                 fprintf(file, "=== ESP32模拟板测试日志 ===\n");
-                fprintf(file, "时间戳(ms),循环计数,拉高IO号(1-8),点亮LED号(1-4),CH0电压(V),CH0电流(mA),CH1电压(V),CH1电流(mA),CH2电压(V),CH2电流(mA),CH3电压(V),CH3电流(mA)\n");
+                fprintf(file, "时间戳(ms),循环计数,拉低IO号(1-8),点亮LED号(1-4),CH0电压(V),CH0电流(mA),CH1电压(V),CH1电流(mA),CH2电压(V),CH2电流(mA),CH3电压(V),CH3电流(mA)\n");
                 fclose(file);
             }
         }
@@ -293,7 +312,7 @@ void task_test_control(uint32_t channel_id, const char *params)
                     "=== 自动化测试启动 ===\r\n"
                     "功能:\r\n"
                     "- ADS1115数据记录到SD卡\r\n"
-                    "- TCA9535 IO1-8循环拉高\r\n"
+                    "- TCA9535 IO1-8循环拉低\r\n"
                     "- LED1-4循环点亮\r\n"
                     "- 循环间隔: %dms\r\n"
                     "- Shell终端持续打印测试数据\r\n"
@@ -316,7 +335,7 @@ void task_test_control(uint32_t channel_id, const char *params)
                 "\r\n"
                 "测试功能:\r\n"
                 "- ADS1115数据记录到SD卡\r\n"
-                "- TCA9535 IO1-8循环拉高\r\n"
+                "- TCA9535 IO1-8循环拉低\r\n"
                 "- LED1-4循环点亮\r\n"
                 "- 循环间隔: %dms\r\n"
                 "- Shell终端持续打印测试数据\r\n"

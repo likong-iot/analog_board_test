@@ -11,6 +11,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char *TAG = "SHELL_ENCODING";
 static const char *NVS_NAMESPACE = "shell_enc";
@@ -276,10 +278,10 @@ static esp_err_t convert_utf8_to_gb2312(const char *src, char *dest, size_t dest
                         dest_pos += gb2312_len;
                         src_pos += utf8_len;
                         found = true;
-                        ESP_LOGI(TAG, "找到映射[%zu]: %s -> GB2312(0x%02X 0x%02X)", 
-                                 i, utf8_gb2312_map[i].utf8,
-                                 (unsigned char)utf8_gb2312_map[i].gb2312[0],
-                                 (unsigned char)utf8_gb2312_map[i].gb2312[1]);
+                        // ESP_LOGD(TAG, "找到映射[%zu]: %s -> GB2312(0x%02X 0x%02X)", 
+                        //          i, utf8_gb2312_map[i].utf8,
+                        //          (unsigned char)utf8_gb2312_map[i].gb2312[0],
+                        //          (unsigned char)utf8_gb2312_map[i].gb2312[1]);
                         break;
                     }
                 }
@@ -287,21 +289,21 @@ static esp_err_t convert_utf8_to_gb2312(const char *src, char *dest, size_t dest
         }
         
         if (!found) {
-            // 未找到映射的非ASCII字符，打印UTF-8字节序列用于调试
-            if (src_pos + 2 < src_len) {
-                ESP_LOGI(TAG, "检测到3字节UTF-8字符: 0x%02X 0x%02X 0x%02X (位置: %zu)", 
-                         (unsigned char)src[src_pos], 
-                         (unsigned char)src[src_pos+1], 
-                         (unsigned char)src[src_pos+2],
-                         src_pos);
-                ESP_LOGI(TAG, "开始在映射表中查找，映射表大小: %zu", utf8_gb2312_map_size);
-                ESP_LOGW(TAG, "未找到映射的UTF-8字符: 0x%02X 0x%02X 0x%02X (位置: %zu)", 
-                         (unsigned char)src[src_pos], 
-                         (unsigned char)src[src_pos+1], 
-                         (unsigned char)src[src_pos+2],
-                         src_pos);
-            } else {
-                ESP_LOGW(TAG, "未找到映射的字符: 0x%02X (位置: %zu)", (unsigned char)src[src_pos], src_pos);
+            // 未找到映射的非ASCII字符，限制日志输出频率避免看门狗超时
+            static uint32_t last_warn_time = 0;
+            uint32_t current_time = xTaskGetTickCount() * portTICK_PERIOD_MS;
+            
+            if (current_time - last_warn_time > 3000) { // 每3秒最多警告一次
+                if (src_pos + 2 < src_len) {
+                    ESP_LOGW(TAG, "未找到映射的UTF-8字符: 0x%02X 0x%02X 0x%02X (位置: %zu)", 
+                             (unsigned char)src[src_pos], 
+                             (unsigned char)src[src_pos+1], 
+                             (unsigned char)src[src_pos+2],
+                             src_pos);
+                } else {
+                    ESP_LOGW(TAG, "未找到映射的字符: 0x%02X (位置: %zu)", (unsigned char)src[src_pos], src_pos);
+                }
+                last_warn_time = current_time;
             }
             
             // 尝试跳过UTF-8字符序列
