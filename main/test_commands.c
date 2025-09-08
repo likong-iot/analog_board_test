@@ -54,10 +54,11 @@ static void key_event_handler(key_event_t event, uint32_t timestamp_ms)
         }
     }
     
+    // 确定事件字符串
+    const char *event_str = (event == KEY_EVENT_PRESSED) ? "按下" : "松开";
+    
     // 获取互斥锁
     if (xSemaphoreTake(output_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        const char *event_str = (event == KEY_EVENT_PRESSED) ? "按下" : "松开";
-        
         // 在Shell中打印按键事件
         shell_snprintf(output, sizeof(output), "\r\n>>> 按键%s (时间戳: %lu ms) <<<\r\n", event_str, timestamp_ms);
         cmd_output(test_channel_id, (uint8_t *)output, strlen(output));
