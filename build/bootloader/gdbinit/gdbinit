@@ -1,0 +1,2 @@
+source /home/master/project/analog_board_test/build/bootloader/gdbinit/symbols
+source /home/master/project/analog_board_test/build/bootloader/gdbinit/connect
