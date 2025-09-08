@@ -5,6 +5,6 @@
  app:build/analog_board_test.bin
 ## 程序烧录地址
 
- bootloader.bin：0x1000
- partition-table.bin：0x8000
- 应用 app：0x10000
+    bootloader.bin：0x1000
+    partition-table.bin：0x8000
+    应用 app：0x10000
